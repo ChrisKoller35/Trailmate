@@ -1,0 +1,39 @@
+{
+  "schema": "ideenkarte-projekt/1",
+  "id": "trailmate",
+  "name": "TrailMate",
+  "typ": "app",
+  "beschreibung": "Wander-App mit Karten, GPS-Tracking, Social-Feed und Wanderpartner-Matching.",
+  "status": "aktiv",
+  "stand": "8 Bau-Dokumente geplant, App-Gerüst mit Expo seit März 2026",
+  "markierung": "mehr-ki",
+  "markierungGeprueft": true,
+  "zuletztGeaendert": "2026-03-25",
+  "ordner": {
+    "haupt": "C:\\Users\\chris\\Documents\\Trailmate start\\TrailMate",
+    "weitere": [
+      "C:\\Users\\chris\\Documents\\Trailmate",
+      "C:\\Users\\chris\\Documents\\Trailmate start"
+    ]
+  },
+  "regeln": [],
+  "repo": null,
+  "technik": [
+    "Expo / React Native",
+    "Supabase"
+  ],
+  "start": null,
+  "einstiegsdateien": [
+    "..\\00_MASTERPLAN.md",
+    "..\\..\\Trailmate\\ROADMAP.md"
+  ],
+  "struktur": [],
+  "naechsteAufgaben": [
+    {
+      "text": "Prüfen, welches der 8 Dokumente erledigt ist",
+      "wer": "ki"
+    }
+  ],
+  "aktualisiert": "2026-10-15",
+  "aktualisiertVon": "claude"
+}
