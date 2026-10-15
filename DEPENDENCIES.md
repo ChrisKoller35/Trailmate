@@ -67,6 +67,16 @@ Tracks key library versions, known compatibility issues, and the update strategy
 | `react-native-web` | ^0.21.0 |
 | `@expo/metro-runtime` | ~55.0.6 |
 
+## Testing (dev)
+
+| Package | Version |
+|---------|---------|
+| `jest` | ~29.7.0 |
+| `jest-expo` | ~55.0.0 |
+| `@types/jest` | ~29.5.14 |
+
+- **Why:** `jest.config.js` uses the `jest-expo` preset; `npm test` needs `jest` and `jest-expo`. `jest-expo` follows the Expo SDK major (55) and requires Jest 29. `@types/jest` provides the test globals for `tsc`.
+
 ---
 
 ## Known Compatibility Issues & Watch List
