@@ -10,6 +10,7 @@ import {
 import { Colors } from '../../constants';
 import { useWeather } from '../../hooks/useWeather';
 import { getWeatherIcon } from './WeatherIcons';
+import { formatWarning, weatherSourceLabel } from '../../lib/weatherLabels';
 
 interface WeatherCardProps {
   routeId: string;
@@ -28,6 +29,7 @@ export default function WeatherCard({
 }: WeatherCardProps) {
   const [activeTab, setActiveTab] = useState<TabMode>('hourly');
   const {
+    forecasts,
     hourlyForecasts,
     dailyForecasts,
     warnings,
@@ -69,7 +71,7 @@ export default function WeatherCard({
         <View style={styles.warningBanner}>
           <Text style={styles.warningIcon}>⚠️</Text>
           <Text style={styles.warningText}>
-            {warnings.map((w) => w.message).join(' · ')}
+            {warnings.map((w) => formatWarning(w)).join(' · ')}
           </Text>
         </View>
       )}
@@ -191,7 +193,7 @@ export default function WeatherCard({
       {/* Footer: source & last updated */}
       <View style={styles.footer}>
         <Text style={styles.sourceText}>
-          Quelle: {source === 'meteoswiss' ? 'MeteoSwiss' : source === 'yrno_direct' ? 'yr.no' : 'MeteoSwiss / yr.no'}
+          {weatherSourceLabel(forecasts.map((f) => f.source))}
         </Text>
         {lastUpdated && (
           <Text style={styles.updatedText}>
