@@ -1,4 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { yrNoModelElevation } from '../supabase/functions/_shared/weatherMath';
+
+export { correctTemperature } from '../supabase/functions/_shared/weatherMath';
 
 const USER_AGENT = 'TrailMate/1.0 info@trailmate.ch';
 const CACHE_PREFIX = 'weather_cache_';
@@ -164,6 +167,7 @@ async function fetchYrNoDirect(
   }
 
   const json = await response.json();
+  const modelElevation = yrNoModelElevation(json);
   const timeseries = json.properties.timeseries as Array<{
     time: string;
     data: {
@@ -199,7 +203,7 @@ async function fetchYrNoDirect(
       ts.data.next_6_hours?.summary.symbol_code ??
       null,
     source: 'yrno',
-    station_elevation_m: 0,
+    station_elevation_m: modelElevation,
   }));
 
   const result: WeatherResponse = {
@@ -211,49 +215,6 @@ async function fetchYrNoDirect(
 
   await cacheWeatherData(lat, lng, result);
   return result;
-}
-
-/**
- * Inverse Distance Weighting interpolation.
- * Given multiple station readings and their distances, compute a weighted average.
- */
-export function interpolateWeather(
-  stations: { value: number; distance: number }[],
-): number {
-  const valid = stations.filter(
-    (s) => s.value !== null && s.value !== undefined && s.distance > 0,
-  );
-
-  if (valid.length === 0) return 0;
-  if (valid.length === 1) return valid[0].value;
-
-  const zeroDistance = valid.find((s) => s.distance < 1);
-  if (zeroDistance) return zeroDistance.value;
-
-  let weightSum = 0;
-  let valueSum = 0;
-
-  for (const station of valid) {
-    const weight = 1 / (station.distance * station.distance);
-    weightSum += weight;
-    valueSum += weight * station.value;
-  }
-
-  return valueSum / weightSum;
-}
-
-/**
- * Correct temperature based on elevation difference using an environmental lapse rate
- * of -0.6°C per 100m altitude gain.
- */
-export function correctTemperature(
-  stationTemp: number,
-  stationElevation: number,
-  routeElevation: number,
-): number {
-  const elevationDiff = routeElevation - stationElevation;
-  const correction = (elevationDiff / 100) * -0.6;
-  return Math.round((stationTemp + correction) * 10) / 10;
 }
 
 /**
