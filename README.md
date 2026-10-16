@@ -56,6 +56,7 @@ npm test
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) – Meilensteine und Reihenfolge bis zum Launch
 - [`docs/spec/`](docs/spec/) – Spezifikation (00 Masterplan, 01–09 Bau-Dokumente; 09 ist der Kern: Wanderpartner-Matching)
 - [`docs/ist-soll/`](docs/ist-soll/) – Abgleich Spezifikation gegen Code, mit offenen Aufgaben
+- [`docs/STAND.md`](docs/STAND.md) – Kurzübersicht: Stand der Bau-Dokumente 01–08 und die nächsten Bauschritte
 - [`docs/ideen/backlog.md`](docs/ideen/backlog.md) – Ideen und offene Fragen
 - [`docs/reflexion/`](docs/reflexion/) – Reflexions- und Produktklausuren
 
