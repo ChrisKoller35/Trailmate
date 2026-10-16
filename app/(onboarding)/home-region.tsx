@@ -76,15 +76,11 @@ export default function HomeRegionScreen() {
       // Save profile to users table
       // Save profile to users table via upsert
 
-      // Remove any stale row with same email but different id (from previous registration)
-      await supabase.from('users').delete().eq('email', session.user.email!).neq('id', session.user.id);
-
       // Upsert profile – works whether row exists or not
       const { data: profile, error: saveError } = await supabase
         .from('users')
         .upsert({
           id: session.user.id,
-          email: session.user.email!,
           display_name: displayName,
           username,
           avatar_url: finalAvatarUrl,

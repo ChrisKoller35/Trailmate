@@ -13,7 +13,6 @@ export function useAuth() {
       try {
         await supabase.from('users').upsert({
           id: data.user.id,
-          email,
           username: tempUsername,
         }, { onConflict: 'id' });
       } catch {
