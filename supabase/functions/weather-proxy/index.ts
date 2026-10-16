@@ -1,5 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  interpolateForecasts,
+  yrNoModelElevation,
+  type InterpolatedForecast,
+  type StationForecast,
+} from '../_shared/weatherMath.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,135 +13,6 @@ const corsHeaders = {
 };
 
 const USER_AGENT = 'TrailMate/1.0 info@trailmate.ch';
-
-interface StationForecast {
-  station_id: string;
-  station_elevation_m: number;
-  distance_m: number;
-  forecast_time: string;
-  temperature: number | null;
-  precipitation: number | null;
-  wind_speed: number | null;
-  cloud_cover: number | null;
-  weather_symbol_code: string | null;
-  source: string;
-}
-
-interface InterpolatedForecast {
-  forecast_time: string;
-  temperature: number | null;
-  precipitation: number | null;
-  wind_speed: number | null;
-  cloud_cover: number | null;
-  weather_symbol_code: string | null;
-  source: string;
-  station_elevation_m: number;
-}
-
-/**
- * Inverse Distance Weighting interpolation for a set of station values.
- * Returns a weighted average based on inverse distance squared.
- */
-function idwInterpolate(
-  stations: { value: number; distance: number }[],
-): number {
-  const validStations = stations.filter(
-    (s) => s.value !== null && s.value !== undefined && s.distance > 0,
-  );
-
-  if (validStations.length === 0) return 0;
-  if (validStations.length === 1) return validStations[0].value;
-
-  // Check if any station is at distance ~0
-  const zeroDistance = validStations.find((s) => s.distance < 1);
-  if (zeroDistance) return zeroDistance.value;
-
-  let weightSum = 0;
-  let valueSum = 0;
-
-  for (const station of validStations) {
-    const weight = 1 / (station.distance * station.distance);
-    weightSum += weight;
-    valueSum += weight * station.value;
-  }
-
-  return valueSum / weightSum;
-}
-
-/**
- * Group station forecasts by time and apply IDW interpolation.
- */
-function interpolateForecasts(
-  stationForecasts: StationForecast[],
-): InterpolatedForecast[] {
-  // Group by forecast_time
-  const byTime = new Map<string, StationForecast[]>();
-  for (const sf of stationForecasts) {
-    const existing = byTime.get(sf.forecast_time) ?? [];
-    existing.push(sf);
-    byTime.set(sf.forecast_time, existing);
-  }
-
-  const results: InterpolatedForecast[] = [];
-
-  for (const [time, stations] of byTime) {
-    const temperature = idwInterpolate(
-      stations
-        .filter((s) => s.temperature !== null)
-        .map((s) => ({ value: s.temperature!, distance: s.distance_m })),
-    );
-
-    const precipitation = idwInterpolate(
-      stations
-        .filter((s) => s.precipitation !== null)
-        .map((s) => ({ value: s.precipitation!, distance: s.distance_m })),
-    );
-
-    const windSpeed = idwInterpolate(
-      stations
-        .filter((s) => s.wind_speed !== null)
-        .map((s) => ({ value: s.wind_speed!, distance: s.distance_m })),
-    );
-
-    const cloudCover = idwInterpolate(
-      stations
-        .filter((s) => s.cloud_cover !== null)
-        .map((s) => ({ value: s.cloud_cover!, distance: s.distance_m })),
-    );
-
-    // Use the symbol from the nearest station
-    const nearest = stations.reduce((prev, curr) =>
-      curr.distance_m < prev.distance_m ? curr : prev,
-    );
-
-    // Weighted average elevation for height correction downstream
-    const stationElevation = idwInterpolate(
-      stations.map((s) => ({
-        value: s.station_elevation_m,
-        distance: s.distance_m,
-      })),
-    );
-
-    results.push({
-      forecast_time: time,
-      temperature: Math.round(temperature * 10) / 10,
-      precipitation: Math.round(precipitation * 10) / 10,
-      wind_speed: Math.round(windSpeed * 10) / 10,
-      cloud_cover: Math.round(cloudCover),
-      weather_symbol_code: nearest.weather_symbol_code,
-      source: nearest.source,
-      station_elevation_m: Math.round(stationElevation),
-    });
-  }
-
-  // Sort by forecast time
-  results.sort(
-    (a, b) =>
-      new Date(a.forecast_time).getTime() - new Date(b.forecast_time).getTime(),
-  );
-
-  return results;
-}
 
 async function fetchYrNoDirectly(
   lat: number,
@@ -152,6 +29,7 @@ async function fetchYrNoDirectly(
   }
 
   const data = await response.json();
+  const modelElevation = yrNoModelElevation(data);
   const timeseries = data.properties.timeseries as Array<{
     time: string;
     data: {
@@ -187,7 +65,7 @@ async function fetchYrNoDirectly(
       ts.data.next_6_hours?.summary.symbol_code ??
       null,
     source: 'yrno' as const,
-    station_elevation_m: 0,
+    station_elevation_m: modelElevation,
   }));
 }
 
