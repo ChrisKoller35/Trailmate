@@ -1,20 +1,16 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Dimensions,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { showErrorToast, showSuccessToast } from '../../lib/toast';
-import { Colors, SAC_SCALES } from '../../constants';
+import { Colors } from '../../constants';
 import { TrailMap } from '../../components/map/TrailMap';
 import { RouteInfoPanel } from '../../components/map/RouteInfoPanel';
 import { RouteFilterSheet } from '../../components/map/RouteFilterSheet';
@@ -22,7 +18,6 @@ import { ElevationProfile } from '../../components/map/ElevationProfile';
 import { useRouting } from '../../hooks/useRouting';
 import { useRouteFilter } from '../../hooks/useRouteFilter';
 import { useRouteBookmarks } from '../../hooks/useRouteBookmarks';
-import type { SACScale } from '../../types';
 
 type PlanningMode = 'idle' | 'set-start' | 'set-end' | 'set-waypoint';
 

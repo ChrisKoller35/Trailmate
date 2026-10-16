@@ -29,7 +29,6 @@ import {
   setTrackingAccuracy,
 } from '../../lib/trackingService';
 import {
-  formatDuration,
   formatDistance,
   applyTrailingDriftCorrection,
 } from '../../lib/trackingCalculations';

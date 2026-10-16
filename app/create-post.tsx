@@ -148,7 +148,8 @@ export default function CreatePostScreen() {
         location: postLocation,
       });
       if (result) {
-        router.canGoBack() ? router.back() : router.replace('/(tabs)');
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)');
       }
     } catch (err: any) {
       Alert.alert('Fehler', err?.message ?? 'Beitrag konnte nicht erstellt werden.');
