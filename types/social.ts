@@ -1,6 +1,7 @@
 // ─── Social Domain ─────────────────────────────────────────
 
 import type { MediaItem, GeoPoint } from './common';
+import type { SACScale } from './trail';
 
 export interface Post {
   id: string;
@@ -251,6 +252,6 @@ export interface FeedPost {
     title: string;
     distance_m: number;
     elevation_gain_m: number | null;
-    sac_scale: string | null;
+    sac_scale: SACScale | null;
   } | null;
 }

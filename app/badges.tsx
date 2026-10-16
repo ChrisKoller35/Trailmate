@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { useAuthStore } from '../stores/authStore';
 import { useBadges, type BadgeWithStatus } from '../hooks/useBadges';
-import type { Badge } from '../types';
 
 const RARITY_COLORS: Record<string, string> = {
   normal: Colors.textSecondary,

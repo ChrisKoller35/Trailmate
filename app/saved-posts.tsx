@@ -15,7 +15,7 @@ import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import Avatar from '../components/ui/Avatar';
-import type { Post, User } from '../types';
+import type { Post } from '../types';
 
 interface SavedPost extends Post {
   username: string;

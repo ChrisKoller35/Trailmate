@@ -17,7 +17,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useAuthStore } from '../stores/authStore';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
-import type { Community, CommunityMember, CommunityRole, GroupEvent } from '../types';
+import type { Community, CommunityMember, CommunityRole } from '../types';
 
 type Tab = 'posts' | 'events' | 'members';
 
