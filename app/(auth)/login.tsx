@@ -14,12 +14,10 @@ import { Colors } from '../../constants';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
-import { useAuthStore } from '../../stores/authStore';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const { setSession, setUser, setProfile } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,40 +96,6 @@ export default function LoginScreen() {
           >
             <Text style={styles.link}>Noch kein Konto? Registrieren</Text>
           </Pressable>
-
-          <Pressable
-            onPress={() => {
-              const fakeUser = {
-                id: 'dev-admin-001',
-                username: 'admin',
-                display_name: 'Admin (Dev)',
-                email: 'admin@trailmate.dev',
-                avatar_url: null,
-                cover_image_url: null,
-                bio: 'Dev-Modus Vorschau',
-                home_region: 'Berner Oberland',
-                hiking_level: 'T3' as const,
-                is_premium: true,
-                is_private: false,
-                is_verified: true,
-                notification_prefs: {},
-                push_token: null,
-                created_at: new Date().toISOString(),
-              };
-              const fakeSession = {
-                access_token: 'dev-token',
-                refresh_token: 'dev-refresh',
-                expires_at: Date.now() + 86400000,
-                user: fakeUser,
-              };
-              setSession(fakeSession as any);
-              setUser(fakeUser as any);
-              setProfile(fakeUser);
-            }}
-            style={styles.devContainer}
-          >
-            <Text style={styles.devText}>{String.fromCodePoint(0x1F527)} Dev-Vorschau (ohne Login)</Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -197,16 +161,5 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 14,
     fontWeight: '600',
-  },
-  devContainer: {
-    marginTop: 40,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  devText: {
-    color: '#9CA3AF',
-    fontSize: 13,
   },
 });

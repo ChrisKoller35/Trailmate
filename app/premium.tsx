@@ -3,8 +3,6 @@ import { View, Text, SafeAreaView, ScrollView, Pressable, Alert, StyleSheet } fr
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../stores/authStore';
 
 const FEATURES = [
   'Offline-Karten',
@@ -16,37 +14,10 @@ const FEATURES = [
 ];
 
 export default function PremiumScreen() {
-  const userId = useAuthStore((s) => s.user?.id);
-  const setProfile = useAuthStore((s) => s.setProfile);
-  const profile = useAuthStore((s) => s.profile);
-
+  // Premium is set server-side only (migration 009). Until the in-app purchase
+  // is wired up, the button only explains that the purchase is coming.
   const handleActivate = () => {
-    Alert.alert(
-      'Premium',
-      'In-App-Purchase wird bald verfügbar. Premium wurde zum Testen aktiviert.',
-      [
-        {
-          text: 'OK',
-          onPress: async () => {
-            if (!userId) return;
-
-            const { error } = await supabase
-              .from('users')
-              .update({ is_premium: true })
-              .eq('id', userId);
-
-            if (error) {
-              Alert.alert('Fehler', 'Premium konnte nicht aktiviert werden.');
-              return;
-            }
-
-            if (profile) {
-              setProfile({ ...profile, is_premium: true });
-            }
-          },
-        },
-      ]
-    );
+    Alert.alert('Premium', 'Der Kauf über den App Store kommt bald.');
   };
 
   return (
