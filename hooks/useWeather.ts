@@ -80,7 +80,7 @@ function classifyWarning(forecast: WeatherData): WeatherWarning | null {
   if (code.includes('thunder')) {
     return {
       type: 'thunder',
-      message: 'Gewitterwarnung',
+      message: 'Gewitter',
       forecast_time: forecast.forecast_time,
     };
   }
@@ -88,7 +88,7 @@ function classifyWarning(forecast: WeatherData): WeatherWarning | null {
   if (forecast.wind_speed !== null && forecast.wind_speed > 16.7) {
     return {
       type: 'storm',
-      message: 'Sturmwarnung – starker Wind erwartet',
+      message: 'Sturm mit starkem Wind',
       forecast_time: forecast.forecast_time,
     };
   }
@@ -101,7 +101,7 @@ function classifyWarning(forecast: WeatherData): WeatherWarning | null {
   ) {
     return {
       type: 'heavy_snow',
-      message: 'Starker Schneefall erwartet',
+      message: 'Starker Schneefall',
       forecast_time: forecast.forecast_time,
     };
   }
@@ -109,7 +109,7 @@ function classifyWarning(forecast: WeatherData): WeatherWarning | null {
   if (code.includes('heavyrain')) {
     return {
       type: 'heavy_rain',
-      message: 'Starkregen erwartet',
+      message: 'Starkregen',
       forecast_time: forecast.forecast_time,
     };
   }
@@ -253,8 +253,12 @@ export function useWeather(
   const warnings: WeatherWarning[] = useMemo(() => {
     const warningSet = new Set<string>();
     const result: WeatherWarning[] = [];
+    const startOfHour = new Date();
+    startOfHour.setMinutes(0, 0, 0);
 
+    // Earliest upcoming occurrence per warning type (forecasts are sorted by time)
     for (const f of forecasts) {
+      if (new Date(f.forecast_time) < startOfHour) continue;
       if (isWeatherWarning(f)) {
         const warning = classifyWarning(f);
         if (warning && !warningSet.has(warning.type)) {
