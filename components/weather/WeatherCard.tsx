@@ -77,6 +77,8 @@ export default function WeatherCard({
       {/* Current Weather Summary */}
       {current && (
         <View style={styles.currentWeather}>
+          {/* getWeatherIcon liefert stabile, modulweite Komponenten – nichts wird beim Rendern neu erzeugt */}
+          {/* eslint-disable-next-line react-hooks/static-components */}
           {CurrentIcon && <CurrentIcon size={48} />}
           <View style={styles.currentInfo}>
             <Text style={styles.currentTemp}>

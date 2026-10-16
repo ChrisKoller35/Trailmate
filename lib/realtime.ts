@@ -89,7 +89,7 @@ export class SupabaseRealtimeProvider implements RealtimeProvider {
 
     const channel = supabase
       .channel(id)
-      .on<T>(
+      .on(
         'postgres_changes' as never,
         {
           event,
@@ -97,7 +97,7 @@ export class SupabaseRealtimeProvider implements RealtimeProvider {
           table,
           ...channelConfig,
         },
-        (payload) => {
+        (payload: unknown) => {
           callback(payload as unknown as RealtimeMessage<T>);
         }
       )

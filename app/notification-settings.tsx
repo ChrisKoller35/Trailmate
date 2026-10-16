@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, SafeAreaView, ScrollView, Switch, StyleSheet } from 'react-native';
 import { Colors } from '../constants';
 import { showErrorToast } from '../lib/toast';

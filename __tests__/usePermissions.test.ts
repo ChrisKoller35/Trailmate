@@ -5,7 +5,7 @@
 // async functions.  We call those functions directly without renderHook,
 // matching the style used throughout this test suite.
 
-import { Alert, Linking } from 'react-native';
+import { Alert } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
