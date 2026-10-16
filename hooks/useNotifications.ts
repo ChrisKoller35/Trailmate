@@ -103,10 +103,10 @@ export function useRegisterPushToken() {
       const userId = useAuthStore.getState().user?.id;
       if (!userId) return;
 
+      // Push tokens are private (migration 010): own row in user_private only
       await supabase
-        .from('users')
-        .update({ push_token: pushToken })
-        .eq('id', userId);
+        .from('user_private')
+        .upsert({ user_id: userId, push_token: pushToken }, { onConflict: 'user_id' });
     } catch {
       // Push notifications not supported on this platform
     }

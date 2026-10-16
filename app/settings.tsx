@@ -11,6 +11,7 @@ const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 export default function SettingsScreen() {
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
+  const email = useAuthStore((s) => s.session?.user?.email);
   const clear = useAuthStore((s) => s.clear);
 
   const handleSignOut = () => {
@@ -72,7 +73,7 @@ export default function SettingsScreen() {
           <Ionicons name="mail-outline" size={22} color={Colors.text} style={styles.itemIcon} />
           <View style={{ flex: 1 }}>
             <Text style={styles.itemLabel}>Konto</Text>
-            <Text style={styles.itemSubtitle}>{profile?.email}</Text>
+            <Text style={styles.itemSubtitle}>{email}</Text>
           </View>
         </View>
 

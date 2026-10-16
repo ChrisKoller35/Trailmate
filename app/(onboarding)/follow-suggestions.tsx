@@ -122,7 +122,6 @@ export default function FollowSuggestionsScreen() {
         .from('users')
         .upsert({
           id: session.user.id,
-          email: session.user.email!,
           display_name: displayName,
           username,
           avatar_url: finalAvatarUrl,
