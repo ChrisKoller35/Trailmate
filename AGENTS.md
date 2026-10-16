@@ -1,6 +1,6 @@
 # AGENTS.md – Arbeitsregeln für Coding-Agents im TrailMate-Repo
 
-*Entwurf vom 12.10.2026. Gehört in die Wurzel des Repos `TrailMate` (als `AGENTS.md` und, falls gewünscht, als `CLAUDE.md` verlinkt). Grundlage: [ROADMAP.md](ROADMAP.md) Abschnitt 9.*
+*Entwurf vom 12.10.2026. Gehört in die Wurzel des Repos `TrailMate` (als `AGENTS.md` und, falls gewünscht, als `CLAUDE.md` verlinkt). Grundlage: [ROADMAP.md](docs/ROADMAP.md) Abschnitt 9.*
 
 ## Was TrailMate ist
 
