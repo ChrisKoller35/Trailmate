@@ -202,7 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_group_join_requests_group ON group_join_requests 
 
 -- Group Events
 CREATE INDEX IF NOT EXISTS idx_group_events_group ON group_events (group_id, event_date);
-CREATE INDEX IF NOT EXISTS idx_group_events_date ON group_events (event_date) WHERE event_date > NOW();
+-- Kein WHERE event_date > NOW(): Postgres erlaubt nur IMMUTABLE-Funktionen im Index-Prädikat.
+CREATE INDEX IF NOT EXISTS idx_group_events_date ON group_events (event_date);
 CREATE INDEX IF NOT EXISTS idx_event_responses_event ON event_responses (event_id);
 
 -- Communities
