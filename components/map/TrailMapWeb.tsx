@@ -199,7 +199,7 @@ export function TrailMapWeb({
 const webStyles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative' as any,
+    position: 'relative' as const,
   },
   fallback: {
     backgroundColor: '#e0e0e0',
@@ -219,7 +219,7 @@ const webStyles = StyleSheet.create({
     textAlign: 'center',
   },
   loadingOverlay: {
-    position: 'absolute' as any,
+    position: 'absolute' as const,
     top: 0,
     left: 0,
     right: 0,
@@ -235,12 +235,12 @@ const webStyles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   childrenOverlay: {
-    position: 'absolute' as any,
+    position: 'absolute' as const,
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 1,
-    pointerEvents: 'box-none' as any,
+    pointerEvents: 'box-none' as const,
   },
 });

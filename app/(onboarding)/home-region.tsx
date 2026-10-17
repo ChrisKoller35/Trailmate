@@ -30,7 +30,7 @@ export default function HomeRegionScreen() {
 
   useEffect(() => {
     setCurrentStep(4);
-  }, []);
+  }, [setCurrentStep]);
 
   const detectLocation = async () => {
     const granted = await requestLocationPermission();

@@ -79,11 +79,11 @@ export default function GroupsScreen() {
               {item.is_private ? 'Privat' : 'Öffentlich'}
             </Text>
           </View>
-          {isMember && (item as any).role && (
+          {isMember && item.role && (
             <Text style={styles.roleText}>
-              {(item as any).role === 'admin'
+              {item.role === 'admin'
                 ? 'Admin'
-                : (item as any).role === 'moderator'
+                : item.role === 'moderator'
                   ? 'Mod'
                   : ''}
             </Text>

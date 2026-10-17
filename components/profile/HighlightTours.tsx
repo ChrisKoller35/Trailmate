@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 
 interface HighlightToursProps {
-  highlights: any[];
+  highlights: { id?: string; title: string | null }[];
 }
 
 export default function HighlightTours({ highlights }: HighlightToursProps) {

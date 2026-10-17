@@ -18,7 +18,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useAuthStore } from '../stores/authStore';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
-import type { Group, GroupMember, GroupEvent, GroupRole } from '../types';
+import type { Group, GroupMember, GroupEvent, GroupRole, EventResponse } from '../types';
 
 type Tab = 'posts' | 'events' | 'members';
 
@@ -34,7 +34,6 @@ export default function GroupDetailScreen() {
     removeMember,
     updateMemberRole,
     deleteGroup,
-    generateInviteCode,
     getGroupRole,
   } = useGroups();
 
@@ -46,7 +45,7 @@ export default function GroupDetailScreen() {
   const [myRole, setMyRole] = useState<GroupRole | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('posts');
   const [loading, setLoading] = useState(true);
-  const [eventResponses, setEventResponses] = useState<Record<string, any[]>>({});
+  const [eventResponses, setEventResponses] = useState<Record<string, EventResponse[]>>({});
 
   const isMember = myRole !== null;
   const isAdmin = myRole === 'admin';
@@ -177,7 +176,7 @@ export default function GroupDetailScreen() {
   const renderEvent = ({ item }: { item: GroupEvent }) => {
     const date = new Date(item.event_date);
     const responses = eventResponses[item.id] || [];
-    const attendingCount = responses.filter((r: any) => r.response === 'attending').length;
+    const attendingCount = responses.filter((r) => r.response === 'attending').length;
 
     return (
       <View style={styles.eventCard}>

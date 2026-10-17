@@ -38,7 +38,7 @@ export default function ChallengeCard({
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.header}>
         <View style={styles.iconCircle}>
-          <Ionicons name={icon as any} size={20} color={Colors.primary} />
+          <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={Colors.primary} />
         </View>
         <View style={styles.titleContainer}>
           <Text style={styles.title} numberOfLines={1}>

@@ -24,7 +24,7 @@ interface BlockedUserItem {
 
 export default function BlockedUsersScreen() {
   const router = useRouter();
-  const { blockedUsers, getBlockedUsers, unblockUser } = useBlock();
+  const { getBlockedUsers, unblockUser } = useBlock();
   const [users, setUsers] = useState<BlockedUserItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +43,7 @@ export default function BlockedUsersScreen() {
       .select('*')
       .in('id', ids);
 
-    const userMap = new Map((data ?? []).map((u: any) => [u.id, u]));
+    const userMap = new Map((data ?? []).map((u: User) => [u.id, u]));
     const enriched = blocks.map((b) => ({
       blocked_id: b.blocked_id,
       user: userMap.get(b.blocked_id) as User | undefined,

@@ -26,7 +26,7 @@ export default function FollowingScreen() {
         .select('following_id')
         .eq('follower_id', profile!.id);
       if (!data?.length) return [];
-      const ids = data.map((f: any) => f.following_id);
+      const ids = data.map((f: { following_id: string }) => f.following_id);
       const { data: users } = await supabase
         .from('users')
         .select('*')

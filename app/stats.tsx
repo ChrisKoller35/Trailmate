@@ -197,7 +197,7 @@ export default function StatsScreen() {
 function StatCard({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <View style={styles.statCard}>
-      <Ionicons name={icon as any} size={22} color={Colors.primary} />
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={Colors.primary} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -216,7 +216,7 @@ function CompareItem({ label, diff }: { label: string; diff: number }) {
 function RecordRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <View style={styles.recordRow}>
-      <Ionicons name={icon as any} size={18} color={Colors.primary} style={{ marginRight: 10 }} />
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={Colors.primary} style={{ marginRight: 10 }} />
       <Text style={styles.recordLabel}>{label}</Text>
       <Text style={styles.recordValue}>{value}</Text>
     </View>

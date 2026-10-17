@@ -34,7 +34,7 @@ export default function ProfileBasicsScreen() {
 
   useEffect(() => {
     setCurrentStep(2);
-  }, []);
+  }, [setCurrentStep]);
 
   // Auto-generate username from display name
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function ProfileBasicsScreen() {
       .slice(0, 20);
     const suffix = Math.floor(1000 + Math.random() * 9000);
     setUsername(`${base}_${suffix}`);
-  }, [displayName]);
+  }, [displayName, setUsername]);
 
   const pickAvatar = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

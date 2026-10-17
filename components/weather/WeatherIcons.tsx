@@ -289,20 +289,6 @@ export function Wind({ size = 24, color = '#6B7280' }: IconProps) {
 
 // ─── Icon Resolver ─────────────────────────────────────────
 
-const ICON_COMPONENTS: Record<string, React.FC<IconProps>> = {
-  sun: Sun,
-  moon: Moon,
-  partlyCloudy: PartlyCloudy,
-  partlyCloudyNight: PartlyCloudyNight,
-  cloudy: Cloudy,
-  rain: Rain,
-  heavyRain: HeavyRain,
-  snow: Snow,
-  thunderstorm: Thunderstorm,
-  fog: Fog,
-  wind: Wind,
-};
-
 /**
  * Resolve a yr.no symbol code to the appropriate weather icon component.
  * Optionally override night detection.

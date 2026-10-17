@@ -7,7 +7,6 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  Dimensions,
   Share,
   Platform,
 } from 'react-native';
@@ -24,8 +23,6 @@ import TrailConditionCard from '../components/trail/TrailConditionCard';
 import TrailConditionReport from '../components/trail/TrailConditionReport';
 import TransportCard from '../components/transport/TransportCard';
 import type { Route, SACScale } from '../types';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function formatDistance(meters: number | null): string {
   if (meters == null) return '–';

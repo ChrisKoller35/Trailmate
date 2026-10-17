@@ -34,7 +34,7 @@ export default function MapScreen() {
 
   const { calculateRoute, routeResult, isCalculating, error, clearRoute, loadDemoRoute } = useRouting();
   const { sacScales, fetchFilteredRoutes } = useRouteFilter();
-  const { toggleBookmark } = useRouteBookmarks();
+  useRouteBookmarks();
 
   const handleMapPress = useCallback(
     (coordinate: [number, number]) => {

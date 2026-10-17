@@ -33,7 +33,7 @@ export default function CommunityDetailScreen() {
     getCommunityRole,
   } = useCommunities();
 
-  const { respondToEvent, getEventResponses } = useEvents();
+  useEvents();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [members, setMembers] = useState<(CommunityMember & { user: any })[]>([]);
