@@ -350,8 +350,8 @@ CREATE INDEX IF NOT EXISTS idx_live_tracking_active
   WHERE is_active = TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_challenges_active
-  ON challenges (start_date, end_date)
-  WHERE end_date > NOW();
+  ON challenges (start_date, end_date);
+-- Kein WHERE end_date > NOW(): Postgres erlaubt nur IMMUTABLE-Funktionen im Index-Prädikat.
 
 
 -- ─── Seed Challenges ───────────────────────────────────────

@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_route_bookmarks_user
 -- Finds the nearest hiking network node to a given coordinate
 -- ============================================================
 CREATE OR REPLACE FUNCTION snap_to_network(lng DOUBLE PRECISION, lat DOUBLE PRECISION)
-RETURNS TABLE(lng DOUBLE PRECISION, lat DOUBLE PRECISION, node_id INTEGER) AS $$
+RETURNS TABLE(snapped_lng DOUBLE PRECISION, snapped_lat DOUBLE PRECISION, node_id INTEGER) AS $$
 DECLARE
   snap_point GEOMETRY;
   nearest_edge RECORD;
