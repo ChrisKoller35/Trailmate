@@ -139,7 +139,7 @@ export function useFeed() {
           .from('posts')
           .select(`
             *,
-            user:users(username, display_name, avatar_url, home_region, is_private)
+            user:users!posts_user_id_fkey(username, display_name, avatar_url, home_region, is_private)
           `)
           .is('group_id', null)
           .is('community_id', null)
