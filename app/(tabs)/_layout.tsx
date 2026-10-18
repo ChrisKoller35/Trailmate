@@ -45,7 +45,7 @@ export default function TabLayout() {
         name="record"
         options={{
           title: 'Aufnehmen',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ size }) => (
             <Ionicons name="radio-button-on" size={size + 4} color={Colors.accent} />
           ),
           tabBarLabelStyle: {

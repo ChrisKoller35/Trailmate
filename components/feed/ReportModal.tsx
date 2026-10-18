@@ -74,7 +74,7 @@ export default function ReportModal({ visible, onClose, onSubmit }: ReportModalP
                 onPress={() => setSelectedReason(reason.value)}
               >
                 <Ionicons
-                  name={reason.icon as any}
+                  name={reason.icon as keyof typeof Ionicons.glyphMap}
                   size={20}
                   color={selectedReason === reason.value ? Colors.primary : Colors.textSecondary}
                 />

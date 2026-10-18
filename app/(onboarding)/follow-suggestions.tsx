@@ -54,7 +54,7 @@ export default function FollowSuggestionsScreen() {
         .from('follows')
         .select('following_id')
         .eq('follower_id', session.user.id);
-      excludeIds = (followData ?? []).map((f: any) => f.following_id);
+      excludeIds = (followData ?? []).map((f: { following_id: string }) => f.following_id);
     }
 
     let query = supabase

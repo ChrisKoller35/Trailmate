@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { useAuthStore } from '../stores/authStore';
@@ -23,7 +23,6 @@ function formatDuration(seconds: number): string {
 }
 
 export default function YearReviewScreen() {
-  const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
   const profile = useAuthStore((s) => s.profile);
   const isPremium = profile?.is_premium ?? false;

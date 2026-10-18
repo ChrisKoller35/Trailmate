@@ -26,7 +26,6 @@ export default function CommunitiesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Community[]>([]);
   const [searching, setSearching] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const handleSearch = useCallback(
     async (q: string) => {
@@ -75,11 +74,11 @@ export default function CommunitiesScreen() {
           {item.category && <Text style={styles.categoryBadge}>{item.category}</Text>}
           {item.region && <Text style={styles.cardRegion}>{item.region}</Text>}
         </View>
-        {showJoined && (item as any).role && (
+        {showJoined && item.role && (
           <Text style={styles.roleLabel}>
-            {(item as any).role === 'admin'
+            {item.role === 'admin'
               ? 'Admin'
-              : (item as any).role === 'moderator'
+              : item.role === 'moderator'
                 ? 'Moderator'
                 : 'Mitglied'}
           </Text>

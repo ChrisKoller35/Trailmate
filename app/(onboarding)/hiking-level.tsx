@@ -12,7 +12,7 @@ export default function HikingLevelScreen() {
 
   useEffect(() => {
     setCurrentStep(3);
-  }, []);
+  }, [setCurrentStep]);
 
   return (
     <SafeAreaView style={styles.safe}>

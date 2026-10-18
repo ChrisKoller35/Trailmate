@@ -60,7 +60,7 @@ export default function NotificationsScreen() {
         onPress={() => handlePress(item)}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name={iconName as any} size={22} color={Colors.primary} />
+          <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={22} color={Colors.primary} />
         </View>
         <View style={styles.contentContainer}>
           {item.title && <Text style={styles.notificationTitle}>{item.title}</Text>}

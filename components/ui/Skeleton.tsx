@@ -42,7 +42,7 @@ export default function Skeleton({
     <Animated.View
       style={[
         styles.skeleton,
-        { width: width as any, height, borderRadius, opacity },
+        { width, height, borderRadius, opacity },
         style,
       ]}
     />

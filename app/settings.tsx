@@ -109,7 +109,7 @@ function SettingsItem({
 }) {
   return (
     <Pressable style={styles.item} onPress={onPress}>
-      <Ionicons name={icon as any} size={22} color={Colors.text} style={styles.itemIcon} />
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={Colors.text} style={styles.itemIcon} />
       <View style={{ flex: 1 }}>
         <Text style={styles.itemLabel}>{label}</Text>
         {subtitle ? <Text style={styles.itemSubtitle}>{subtitle}</Text> : null}

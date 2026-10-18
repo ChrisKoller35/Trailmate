@@ -12,13 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants';
 import { useEvents } from '../hooks/useEvents';
-import type { GroupEvent } from '../types';
+import type { EventResponse, GroupEvent } from '../types';
 
 export default function EventsScreen() {
   const router = useRouter();
   const { upcomingEvents, respondToEvent, getEventResponses } = useEvents();
   const [loading, setLoading] = useState(true);
-  const [eventResponses, setEventResponses] = useState<Record<string, any[]>>({});
+  const [eventResponses, setEventResponses] = useState<Record<string, EventResponse[]>>({});
 
   useEffect(() => {
     // Events are loaded on mount by the hook
@@ -46,8 +46,8 @@ export default function EventsScreen() {
   const renderEvent = ({ item }: { item: GroupEvent }) => {
     const date = new Date(item.event_date);
     const responses = eventResponses[item.id] || [];
-    const attending = responses.filter((r: any) => r.response === 'attending').length;
-    const maybe = responses.filter((r: any) => r.response === 'maybe').length;
+    const attending = responses.filter((r) => r.response === 'attending').length;
+    const maybe = responses.filter((r) => r.response === 'maybe').length;
 
     return (
       <View style={styles.eventCard}>

@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -40,7 +40,6 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function RecordingHistoryScreen() {
-  const router = useRouter();
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
 

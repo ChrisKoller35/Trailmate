@@ -42,7 +42,7 @@ export default function FollowRequestsScreen() {
         .select('*')
         .in('id', userIds);
 
-      const userMap = new Map((users ?? []).map((u: any) => [u.id, u]));
+      const userMap = new Map((users ?? []).map((u: User) => [u.id, u]));
       const enriched: RequestWithUser[] = reqs.map((r) => ({
         ...r,
         user: userMap.get(r.requester_id) as User | undefined,

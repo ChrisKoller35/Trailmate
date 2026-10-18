@@ -30,7 +30,6 @@ function SliderRow({
   value,
   min,
   max,
-  step,
   unit,
   onDecrease,
   onIncrease,

@@ -12,7 +12,7 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     setCurrentStep(1);
-  }, []);
+  }, [setCurrentStep]);
 
   return (
     <SafeAreaView style={styles.safe}>

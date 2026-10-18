@@ -18,7 +18,7 @@ export default function Avatar({ uri, size = 48, fallbackIcon = 'person-circle-o
         />
       ) : (
         <View style={[styles.fallback, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Ionicons name={fallbackIcon as any} size={size * 0.6} color={Colors.textLight} />
+          <Ionicons name={fallbackIcon as keyof typeof Ionicons.glyphMap} size={size * 0.6} color={Colors.textLight} />
         </View>
       )}
     </View>
