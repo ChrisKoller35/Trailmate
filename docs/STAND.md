@@ -21,7 +21,7 @@ Dokument 09 (Wanderpartner-Matching, Kern) ist kein Bau-Baustein im Sinne von 01
 
 ## Geprüft
 
-- Tests: `npm test` – 6 Suites, 97 Tests grün (`__tests__/`).
+- Tests: `npm test` – 10 Suites, 139 Tests grün (`__tests__/`).
 - Typecheck: `npx tsc --noEmit` – 0 Fehler (Edge Functions seit PR #5 ausgenommen).
 - Lint: `npm run lint` – 0 Fehler, 152 Warnungen.
 
