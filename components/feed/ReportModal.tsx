@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
-import { showErrorToast, showSuccessToast } from '../../lib/toast';
+import { showErrorToast, showInfoToast, showSuccessToast } from '../../lib/toast';
 import type { ReportReason } from '../../types';
 
 interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (reason: ReportReason, description?: string) => Promise<void>;
+  /** Liefert true, wenn der Beitrag von dieser Person schon gemeldet war. */
+  onSubmit: (reason: ReportReason, description?: string) => Promise<boolean | void>;
 }
 
 const REASONS: { value: ReportReason; label: string; icon: string }[] = [
@@ -38,8 +39,12 @@ export default function ReportModal({ visible, onClose, onSubmit }: ReportModalP
 
     setIsSubmitting(true);
     try {
-      await onSubmit(selectedReason, description.trim() || undefined);
-      showSuccessToast('Danke für deine Meldung. Wir werden den Beitrag prüfen.');
+      const alreadyReported = await onSubmit(selectedReason, description.trim() || undefined);
+      if (alreadyReported) {
+        showInfoToast('Du hast diesen Beitrag schon gemeldet.');
+      } else {
+        showSuccessToast('Danke für deine Meldung. Wir werden den Beitrag prüfen.');
+      }
       setSelectedReason(null);
       setDescription('');
       onClose();

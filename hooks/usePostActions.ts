@@ -5,6 +5,9 @@ import { useAuthStore } from '../stores/authStore';
 import { queryKeys } from '../lib/queryKeys';
 import type { Comment } from '../types';
 
+// Postgres unique_violation: dieselbe Person meldet dasselbe Ziel erneut (Migration 013)
+const UNIQUE_VIOLATION = '23505';
+
 export function usePostActions() {
   const userId = useAuthStore((s) => s.user?.id);
   const queryClient = useQueryClient();
@@ -193,7 +196,9 @@ export function usePostActions() {
         reason,
         description: description ?? null,
       });
+      if (error?.code === UNIQUE_VIOLATION) return { alreadyReported: true };
       if (error) throw error;
+      return { alreadyReported: false };
     },
   });
 
@@ -213,7 +218,9 @@ export function usePostActions() {
         reason,
         description: description ?? null,
       });
+      if (error?.code === UNIQUE_VIOLATION) return { alreadyReported: true };
       if (error) throw error;
+      return { alreadyReported: false };
     },
   });
 
@@ -271,22 +278,26 @@ export function usePostActions() {
     }
   };
 
+  /** Liefert true, wenn diese Person den Beitrag schon gemeldet hatte. */
   const reportPost = async (
     postId: string,
     reason: 'spam' | 'abuse' | 'fake' | 'inappropriate',
     description?: string,
-  ) => {
-    if (!userId) return;
-    await reportPostMutation.mutateAsync({ postId, reason, description });
+  ): Promise<boolean> => {
+    if (!userId) return false;
+    const { alreadyReported } = await reportPostMutation.mutateAsync({ postId, reason, description });
+    return alreadyReported;
   };
 
+  /** Liefert true, wenn diese Person den Kommentar schon gemeldet hatte. */
   const reportComment = async (
     commentId: string,
     reason: 'spam' | 'abuse' | 'fake' | 'inappropriate',
     description?: string,
-  ) => {
-    if (!userId) return;
-    await reportCommentMutation.mutateAsync({ commentId, reason, description });
+  ): Promise<boolean> => {
+    if (!userId) return false;
+    const { alreadyReported } = await reportCommentMutation.mutateAsync({ commentId, reason, description });
+    return alreadyReported;
   };
 
   const deletePost = async (postId: string) => {
