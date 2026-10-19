@@ -40,29 +40,16 @@ export function useBlock() {
 
       if (blockError) throw blockError;
 
-      await supabase
-        .from('follows')
-        .delete()
-        .eq('follower_id', userId!)
-        .eq('following_id', targetUserId);
-
-      await supabase
-        .from('follows')
-        .delete()
-        .eq('follower_id', targetUserId)
-        .eq('following_id', userId!);
-
-      await supabase
-        .from('follow_requests')
-        .delete()
-        .eq('requester_id', userId!)
-        .eq('target_id', targetUserId);
-
-      await supabase
-        .from('follow_requests')
-        .delete()
-        .eq('requester_id', targetUserId)
-        .eq('target_id', userId!);
+      // Follow-Beziehungen und offene Anfragen in beiden Richtungen entfernen.
+      // RLS erlaubt beides (follows_delete / follows_delete_by_target).
+      const results = await Promise.all([
+        supabase.from('follows').delete().eq('follower_id', userId!).eq('following_id', targetUserId),
+        supabase.from('follows').delete().eq('follower_id', targetUserId).eq('following_id', userId!),
+        supabase.from('follow_requests').delete().eq('requester_id', userId!).eq('target_id', targetUserId),
+        supabase.from('follow_requests').delete().eq('requester_id', targetUserId).eq('target_id', userId!),
+      ]);
+      const cleanupError = results.find((r) => r.error)?.error;
+      if (cleanupError) throw cleanupError;
     },
     onMutate: async (targetUserId: string) => {
       const theKey = queryKeys.blocks(userId ?? '');
@@ -86,6 +73,10 @@ export function useBlock() {
       queryClient.invalidateQueries({ queryKey: queryKeys.blocks(userId ?? '') });
       queryClient.invalidateQueries({ queryKey: queryKeys.feed.main(userId ?? '') });
       queryClient.invalidateQueries({ queryKey: queryKeys.feed.explore(userId ?? '') });
+      queryClient.invalidateQueries({ queryKey: ['followers'] });
+      queryClient.invalidateQueries({ queryKey: ['current-following-ids'] });
+      queryClient.invalidateQueries({ queryKey: ['follower-count'] });
+      queryClient.invalidateQueries({ queryKey: ['following-count'] });
     },
   });
 
