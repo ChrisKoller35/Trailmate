@@ -4,9 +4,12 @@
 
 BEGIN;
 
-INSERT INTO users (id, username, email)
-VALUES ('00000000-0000-0000-0000-0000000000a1', 'test_status_a', 'a@test.invalid');
+INSERT INTO users (id, username)
+VALUES ('00000000-0000-0000-0000-0000000000a1', 'test_status_a');
 
+-- Als Konto A anmelden (sonst blendet RLS die eigene Zeile aus)
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
 
 -- 1) Normales Konto kann sich nicht selbst auf Premium setzen
@@ -33,9 +36,11 @@ END $$;
 UPDATE users SET bio = 'Hallo'
 WHERE id = '00000000-0000-0000-0000-0000000000a1';
 
--- 3) Beim Anlegen werden die Felder auf FALSE gezwungen
-INSERT INTO users (id, username, email, is_premium, is_verified)
-VALUES ('00000000-0000-0000-0000-0000000000b2', 'test_status_b', 'b@test.invalid', TRUE, TRUE);
+-- 3) Beim Anlegen werden die Felder auf FALSE gezwungen (als Konto B)
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000b2","role":"authenticated"}', true);
+INSERT INTO users (id, username, is_premium, is_verified)
+VALUES ('00000000-0000-0000-0000-0000000000b2', 'test_status_b', TRUE, TRUE);
 
 RESET ROLE;
 
