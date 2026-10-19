@@ -37,3 +37,5 @@ Alle drei gehören zu Meilenstein M1 „Grün und sicher“ ([`docs/ROADMAP.md`]
    *Bestanden:* Test: Konto A kann `email` und `push_token` von Konto B weder über `users` noch über `public_profiles` lesen; die eigene E-Mail bleibt lesbar. Betrifft [01](ist-soll/01.md) und ist Vorarbeit für Dokument 09 (Strang A8).
 
 *Nachtrag:* Migration 012 (Test `supabase/tests/012_gruppen_rechte.test.sql`) behebt Ist-Soll 06, Sicherheitsauffälligkeiten 1, 4, 6 und Teil von 7: Community-Beitritt nur mit angenommener Anfrage oder durch Admin/Mod, Moderatoren entfernen Mitglieder (keine Admins), Community-Events mit Zusage, Community anlegen nur verifiziert.
+
+*Nachtrag:* Migration 014 (Test `supabase/tests/014_block_filter_suchpfad.test.sql`) behebt Ist-Soll 01, Sicherheitsauffälligkeiten 1 und 3: Block-Filter gilt wieder für Routen, Abzeichen und Challenge-Teilnahmen; alle SECURITY-DEFINER-Funktionen haben einen festen `search_path`.
