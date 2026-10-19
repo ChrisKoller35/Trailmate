@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { queryKeys } from '../lib/queryKeys';
+import { groupPostMessages } from '../lib/postMessageThreads';
 import type { PostMessage } from '../types';
 
 export interface PostMessageThread {
@@ -35,51 +36,25 @@ export function usePostMessages() {
       if (!data) return [];
 
       // Group by post + conversation partner
-      const threadMap = new Map<string, { messages: PostMessage[]; otherId: string; unread: number }>();
-
-      for (const msg of data as PostMessage[]) {
-        const otherId = msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
-        const key = `${msg.post_id}:${otherId}`;
-
-        if (!threadMap.has(key)) {
-          threadMap.set(key, { messages: [], otherId, unread: 0 });
-        }
-        const entry = threadMap.get(key)!;
-        entry.messages.push(msg);
-        if (!msg.is_read && msg.receiver_id === userId) {
-          entry.unread++;
-        }
-      }
+      const groups = groupPostMessages(data as PostMessage[], userId);
 
       // Load user info
-      const otherIds = [...new Set(Array.from(threadMap.values()).map((t) => t.otherId))];
+      const otherIds = [...new Set(groups.map((g) => g.otherUserId))];
       const { data: users } = otherIds.length > 0
         ? await supabase.from('users').select('id, username, display_name, avatar_url').in('id', otherIds)
         : { data: [] };
 
       const userMap = new Map((users ?? []).map((u: any) => [u.id, u]));
 
-      const threads: PostMessageThread[] = Array.from(threadMap.entries())
-        .map(([key, entry]) => {
-          const user = userMap.get(entry.otherId);
-          // Sort messages chronologically
-          entry.messages.sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          );
-          return {
-            postId: key.split(':')[0],
-            otherUserId: entry.otherId,
-            username: user?.username ?? 'Unbekannt',
-            display_name: user?.display_name ?? null,
-            avatar_url: user?.avatar_url ?? null,
-            messages: entry.messages,
-            unreadCount: entry.unread,
-            lastMessageAt: entry.messages[entry.messages.length - 1].created_at,
-          };
-        })
-        .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-
-      return threads;
+      return groups.map((g) => {
+        const user = userMap.get(g.otherUserId);
+        return {
+          ...g,
+          username: user?.username ?? 'Unbekannt',
+          display_name: user?.display_name ?? null,
+          avatar_url: user?.avatar_url ?? null,
+        };
+      });
     },
     enabled: !!userId,
   });

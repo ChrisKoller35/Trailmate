@@ -18,12 +18,13 @@ import { usePostMessages } from '../hooks/usePostMessages';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { showErrorToast } from '../lib/toast';
+import { selectPostThread, replyRecipient } from '../lib/postMessageThreads';
 import Avatar from '../components/ui/Avatar';
 import type { PostMessage } from '../types';
 
 export default function PostMessagesScreen() {
   const router = useRouter();
-  const { postId } = useLocalSearchParams<{ postId: string }>();
+  const { postId, userId } = useLocalSearchParams<{ postId: string; userId?: string }>();
   const currentUser = useAuthStore((s) => s.user);
   const { postInbox, fetchPostInbox, replyToPostMessage, markPostMessagesRead } = usePostMessages();
 
@@ -31,21 +32,25 @@ export default function PostMessagesScreen() {
   const [postTitle, setPostTitle] = useState<string>('Beitrag');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // Conversation partner; via param or chosen from the list below
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(userId ?? null);
 
-  // All threads for this post
+  // All threads for this post; with several senders the user picks one first
   const threads = postInbox.filter((t) => t.postId === postId);
+  const thread = postId ? selectPostThread(postInbox, postId, selectedUserId) : null;
+  const showThreadList = !thread && threads.length > 1;
 
-  // Flat list of all messages across threads, sorted chronologically
-  const allMessages = threads
-    .flatMap((t) =>
-      t.messages.map((m) => ({
-        ...m,
-        otherUsername: t.username,
-        otherAvatar: t.avatar_url,
-        otherUserId: t.otherUserId,
-      })),
-    )
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const allMessages = (thread?.messages ?? []).map((m) => ({
+    ...m,
+    otherUsername: thread?.username ?? '',
+    otherAvatar: thread?.avatar_url ?? null,
+    otherUserId: thread?.otherUserId ?? '',
+  }));
+
+  const handleBack = () => {
+    if (thread && threads.length > 1 && !userId) setSelectedUserId(null);
+    else router.back();
+  };
 
   useEffect(() => {
     if (!postId) return;
@@ -74,8 +79,8 @@ export default function PostMessagesScreen() {
     const trimmed = text.trim();
     if (!trimmed || !postId || sending) return;
 
-    // Reply to the first other user in this thread
-    const otherUser = threads.length > 0 ? threads[0].otherUserId : null;
+    // Reply to the sender of the chosen conversation
+    const otherUser = replyRecipient(thread);
     if (!otherUser) return;
 
     setSending(true);
@@ -126,7 +131,7 @@ export default function PostMessagesScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={handleBack} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </Pressable>
         <View style={styles.headerInfo}>
@@ -146,6 +151,25 @@ export default function PostMessagesScreen() {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
+        ) : showThreadList ? (
+          <FlatList
+            data={threads}
+            keyExtractor={(t) => t.otherUserId}
+            renderItem={({ item: t }) => (
+              <Pressable style={styles.threadRow} onPress={() => setSelectedUserId(t.otherUserId)}>
+                <Avatar uri={t.avatar_url} size={40} />
+                <View style={styles.headerInfo}>
+                  <Text style={styles.threadName} numberOfLines={1}>
+                    {t.display_name ?? `@${t.username}`}
+                  </Text>
+                  <Text style={styles.headerSubtitle} numberOfLines={1}>
+                    {t.messages[t.messages.length - 1]?.content}
+                  </Text>
+                </View>
+                {t.unreadCount > 0 && <View style={styles.unreadDot} />}
+              </Pressable>
+            )}
+          />
         ) : (
           <FlatList
             data={allMessages}
@@ -162,7 +186,7 @@ export default function PostMessagesScreen() {
         )}
 
         {/* Input Bar */}
-        {threads.length > 0 && (
+        {thread && (
           <View style={styles.inputBar}>
             <TextInput
               style={styles.input}
@@ -224,6 +248,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+  },
+  threadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  threadName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
   },
   messageList: {
     paddingHorizontal: 12,

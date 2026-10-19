@@ -8,11 +8,15 @@ import {
   FlatList,
   Dimensions,
   Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Video, ResizeMode } from 'expo-av';
 import { Colors } from '../../constants';
+import { usePostMessages } from '../../hooks/usePostMessages';
+import { showErrorToast, showSuccessToast } from '../../lib/toast';
 import Avatar from '../ui/Avatar';
 import type { FeedPost } from '../../types';
 import type { SACScale } from '../../types';
@@ -76,6 +80,28 @@ export default function PostCard({
   const [isMuted, setIsMuted] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const { sendPostMessage } = usePostMessages();
+
+  const handleSendMessage = async () => {
+    const trimmed = messageText.trim();
+    if (!trimmed || sendingMessage) return;
+    setSendingMessage(true);
+    try {
+      await sendPostMessage(post.id, post.user_id, trimmed);
+      setMessageText('');
+      setMessageOpen(false);
+      showSuccessToast('Nachricht gesendet.');
+    } catch (err) {
+      // z. B. Tageslimit (Migration 013): Text bleibt im Feld
+      const message = (err as { message?: unknown } | null)?.message;
+      showErrorToast(typeof message === 'string' && message ? message : 'Nachricht konnte nicht gesendet werden.');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   const mediaList = post.media_urls ?? [];
   const hasMedia = mediaList.length > 0;
@@ -259,7 +285,54 @@ export default function PostCard({
             Speichern
           </Text>
         </Pressable>
+
+        {!isOwnPost && (
+          <Pressable style={styles.actionButton} onPress={() => setMessageOpen(true)}>
+            <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} />
+            <Text style={styles.actionText}>Nachricht</Text>
+          </Pressable>
+        )}
       </View>
+
+      {/* Private message to the post owner */}
+      <Modal
+        visible={messageOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMessageOpen(false)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setMessageOpen(false)}>
+          <Pressable style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>Nachricht an @{post.username}</Text>
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Deine Nachricht..."
+              placeholderTextColor={Colors.textLight}
+              value={messageText}
+              onChangeText={setMessageText}
+              multiline
+              maxLength={2000}
+              autoFocus
+            />
+            <View style={styles.confirmButtons}>
+              <Pressable style={styles.confirmCancelBtn} onPress={() => setMessageOpen(false)}>
+                <Text style={styles.confirmCancelText}>Abbrechen</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.messageSendBtn, !messageText.trim() && { opacity: 0.5 }]}
+                onPress={handleSendMessage}
+                disabled={!messageText.trim() || sendingMessage}
+              >
+                {sendingMessage ? (
+                  <ActivityIndicator size="small" color={Colors.textOnPrimary} />
+                ) : (
+                  <Text style={styles.confirmDeleteText}>Senden</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Delete confirmation modal */}
       <Modal
@@ -526,6 +599,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     backgroundColor: Colors.error,
+    alignItems: 'center',
+  },
+  messageInput: {
+    width: '100%',
+    minHeight: 80,
+    maxHeight: 160,
+    backgroundColor: Colors.surfaceVariant,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    color: Colors.text,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  messageSendBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
   },
   confirmDeleteText: {
