@@ -203,7 +203,7 @@ export default function FeedScreen() {
         onClose={() => setReportPostId(null)}
         onSubmit={async (reason, description) => {
           if (reportPostId) {
-            await reportPost(reportPostId, reason, description);
+            return reportPost(reportPostId, reason, description);
           }
         }}
       />

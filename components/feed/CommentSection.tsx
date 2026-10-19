@@ -107,8 +107,12 @@ export default function CommentSection({
 
   const doReport = async (commentId: string, reason: 'spam' | 'abuse' | 'fake' | 'inappropriate') => {
     try {
-      await reportComment(commentId, reason);
-      Alert.alert('Gemeldet', 'Danke für deine Meldung. Wir prüfen den Kommentar.');
+      const alreadyReported = await reportComment(commentId, reason);
+      if (alreadyReported) {
+        Alert.alert('Schon gemeldet', 'Du hast diesen Kommentar schon gemeldet.');
+      } else {
+        Alert.alert('Gemeldet', 'Danke für deine Meldung. Wir prüfen den Kommentar.');
+      }
     } catch {
       Alert.alert('Fehler', 'Meldung konnte nicht gesendet werden.');
     }

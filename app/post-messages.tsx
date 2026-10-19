@@ -17,6 +17,7 @@ import { Colors } from '../constants';
 import { usePostMessages } from '../hooks/usePostMessages';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
+import { showErrorToast } from '../lib/toast';
 import Avatar from '../components/ui/Avatar';
 import type { PostMessage } from '../types';
 
@@ -79,8 +80,16 @@ export default function PostMessagesScreen() {
 
     setSending(true);
     setText('');
-    await replyToPostMessage(postId, otherUser, trimmed);
-    setSending(false);
+    try {
+      await replyToPostMessage(postId, otherUser, trimmed);
+    } catch (err) {
+      // z. B. Tageslimit (Migration 013): Text zurückgeben statt still zu verlieren
+      setText(trimmed);
+      const message = (err as { message?: unknown } | null)?.message;
+      showErrorToast(typeof message === 'string' && message ? message : 'Nachricht konnte nicht gesendet werden.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const renderMessage = ({

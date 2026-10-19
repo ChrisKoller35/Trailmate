@@ -88,7 +88,8 @@ export function useModeration() {
           status: 'pending',
         });
 
-      if (error) console.error('Report submission failed:', error);
+      // 23505: schon gemeldet (eindeutige Meldung pro Person, Migration 013) – kein Fehler
+      if (error && error.code !== '23505') console.error('Report submission failed:', error);
     },
     [userId],
   );
