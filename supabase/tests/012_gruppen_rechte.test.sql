@@ -34,6 +34,14 @@ BEGIN
   END;
 
   BEGIN
+    INSERT INTO community_join_requests (community_id, user_id, status) VALUES
+      ('00000000-0000-0000-0000-00000000c012', '00000000-0000-0000-0000-0000000012d4', 'accepted');
+    RAISE EXCEPTION 'FEHLER: selbst angenommene Beitrittsanfrage angelegt';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'ok: Anfrage kann nicht selbst angenommen angelegt werden';
+  END;
+
+  BEGIN
     INSERT INTO communities (name, created_by) VALUES
       ('Unverifiziert', '00000000-0000-0000-0000-0000000012d4');
     RAISE EXCEPTION 'FEHLER: nicht verifiziertes Konto hat Community angelegt';

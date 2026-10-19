@@ -128,7 +128,20 @@ CREATE POLICY communities_insert ON communities FOR INSERT WITH CHECK (
   AND COALESCE((SELECT is_verified FROM users WHERE id = auth.uid()), FALSE)
 );
 
+-- ── Beitrittsanfragen ───────────────────────────────────────
+-- Neue Anfragen sind immer offen; sonst könnte man sich eine bereits
+-- angenommene Anfrage selbst anlegen und damit den Self-Join oben öffnen.
+DROP POLICY IF EXISTS group_join_requests_insert ON group_join_requests;
+CREATE POLICY group_join_requests_insert ON group_join_requests FOR INSERT WITH CHECK (
+  user_id = auth.uid() AND status = 'pending'
+);
+
+DROP POLICY IF EXISTS community_join_requests_insert ON community_join_requests;
+CREATE POLICY community_join_requests_insert ON community_join_requests FOR INSERT WITH CHECK (
+  user_id = auth.uid() AND status = 'pending'
+);
+
 -- Down: Policies aus 002_rls_policies.sql (Zeilen 471-499, 544-589,
--- 610-612, 636-658) wiederherstellen und
+-- 516-518, 610-612, 636-658, 674-676) wiederherstellen und
 -- DROP FUNCTION IF EXISTS group_role(UUID, UUID);
 -- DROP FUNCTION IF EXISTS community_role(UUID, UUID);
