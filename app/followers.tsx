@@ -5,18 +5,24 @@ import {
   Pressable,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { useFollow } from '../hooks/useFollow';
+import { useBlock } from '../hooks/useBlock';
 import Avatar from '../components/ui/Avatar';
 import type { User } from '../types';
 
 export default function FollowersScreen() {
   const profile = useAuthStore((s) => s.profile);
   const queryClient = useQueryClient();
+  const { removeFollower } = useFollow();
+  const { blockUser } = useBlock();
 
   const { data: followers = [], isLoading } = useQuery({
     queryKey: ['followers', profile?.id],
@@ -65,6 +71,63 @@ export default function FollowersScreen() {
     },
   });
 
+  const invalidateFollowLists = () => {
+    queryClient.invalidateQueries({ queryKey: ['followers'] });
+    queryClient.invalidateQueries({ queryKey: ['current-following-ids'] });
+    queryClient.invalidateQueries({ queryKey: ['follower-count'] });
+    queryClient.invalidateQueries({ queryKey: ['following-count'] });
+  };
+
+  const confirmRemove = (user: User) => {
+    const name = user.display_name || user.username;
+    Alert.alert('Follower entfernen', `Möchtest du ${name} als Follower entfernen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Entfernen',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeFollower(user.id);
+          } catch {
+            // Fehler meldet der Hook per Toast
+          }
+          invalidateFollowLists();
+        },
+      },
+    ]);
+  };
+
+  const confirmBlock = (user: User) => {
+    const name = user.display_name || user.username;
+    Alert.alert(
+      'Blockieren',
+      `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Blockieren',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(user.id);
+            } catch {
+              // Fehler meldet der Hook per Toast
+            }
+            invalidateFollowLists();
+          },
+        },
+      ],
+    );
+  };
+
+  const openMenu = (user: User) => {
+    Alert.alert(user.display_name || user.username, undefined, [
+      { text: 'Entfernen', onPress: () => confirmRemove(user) },
+      { text: 'Blockieren', style: 'destructive', onPress: () => confirmBlock(user) },
+      { text: 'Abbrechen', style: 'cancel' },
+    ]);
+  };
+
   const renderItem = ({ item }: { item: User }) => {
     const isFollowing = currentFollowing.includes(item.id);
     const isMe = item.id === profile?.id;
@@ -84,6 +147,16 @@ export default function FollowersScreen() {
             <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
               {isFollowing ? 'Entfolgen' : 'Folgen'}
             </Text>
+          </Pressable>
+        )}
+        {!isMe && (
+          <Pressable
+            onPress={() => openMenu(item)}
+            hitSlop={8}
+            style={styles.menuButton}
+            accessibilityLabel="Weitere Aktionen"
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={Colors.textSecondary} />
           </Pressable>
         )}
       </View>
@@ -164,6 +237,10 @@ const styles = StyleSheet.create({
   },
   followingButtonText: {
     color: Colors.text,
+  },
+  menuButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   emptyText: {
     fontSize: 14,

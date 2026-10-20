@@ -19,6 +19,7 @@ import { showInfoToast, showSuccessToast } from '../lib/toast';
 import { useDMs } from '../hooks/useDMs';
 import { useModeration } from '../hooks/useModeration';
 import { checkRateLimit } from '../hooks/useModeration';
+import { useBlock } from '../hooks/useBlock';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import Avatar from '../components/ui/Avatar';
@@ -30,6 +31,7 @@ export default function ChatScreen() {
   const currentUser = useAuthStore((s) => s.user);
   const { messages, fetchMessages, sendMessage, markAsRead, subscribeToMessages, canDM } = useDMs();
   const { reportContent } = useModeration();
+  const { blockUser } = useBlock();
 
   const [text, setText] = useState('');
   const [otherUser, setOtherUser] = useState<{
@@ -99,7 +101,39 @@ export default function ChatScreen() {
     ]);
   };
 
-  const renderMessage = ({ item }: { item: DirectMessage }) => {
+  const confirmBlock = () => {
+    if (!otherUserId) return;
+    const name = otherUser?.display_name || otherUser?.username || 'diese Person';
+    Alert.alert(
+      'Blockieren',
+      `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Blockieren',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(otherUserId);
+            } catch {
+              // Fehler meldet der Hook per Toast
+              return;
+            }
+            router.replace('/messages');
+          },
+        },
+      ],
+    );
+  };
+
+  const openMenu = () => {
+    Alert.alert(otherUser?.display_name || otherUser?.username || 'Chat', undefined, [
+      { text: 'Blockieren', style: 'destructive', onPress: confirmBlock },
+      { text: 'Abbrechen', style: 'cancel' },
+    ]);
+  };
+
+  const renderMessage =({ item }: { item: DirectMessage }) => {
     const isOwn = item.sender_id === currentUser?.id;
 
     return (
@@ -135,7 +169,9 @@ export default function ChatScreen() {
             {otherUser?.display_name || otherUser?.username || '...'}
           </Text>
         </Pressable>
-        <View style={{ width: 24 }} />
+        <Pressable onPress={openMenu} hitSlop={8} accessibilityLabel="Weitere Aktionen">
+          <Ionicons name="ellipsis-vertical" size={22} color={Colors.text} />
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
