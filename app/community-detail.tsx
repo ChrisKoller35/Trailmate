@@ -5,13 +5,13 @@ import {
   FlatList,
   SafeAreaView,
   Pressable,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants';
+import { confirmAction } from '../lib/dialog';
 import { useCommunities } from '../hooks/useCommunities';
 import { useEvents } from '../hooks/useEvents';
 import { useAuthStore } from '../stores/authStore';
@@ -68,19 +68,16 @@ export default function CommunityDetailScreen() {
     await loadDetail();
   };
 
-  const handleLeave = () => {
-    Alert.alert('Community verlassen', 'Möchtest du diese Community wirklich verlassen?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Verlassen',
-        style: 'destructive',
-        onPress: async () => {
-          if (!id) return;
-          await leaveCommunity(id);
-          router.back();
-        },
-      },
-    ]);
+  const handleLeave = async () => {
+    const ok = await confirmAction({
+      title: 'Community verlassen',
+      message: 'Möchtest du diese Community wirklich verlassen?',
+      confirmText: 'Verlassen',
+      destructive: true,
+    });
+    if (!ok || !id) return;
+    await leaveCommunity(id);
+    router.back();
   };
 
   const renderMember = ({ item }: { item: CommunityMember & { user: any } }) => (

@@ -5,13 +5,13 @@ import {
   Pressable,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
+import { chooseAction, confirmAction } from '../lib/dialog';
 import { useAuthStore } from '../stores/authStore';
 import { useFollow } from '../hooks/useFollow';
 import { useBlock } from '../hooks/useBlock';
@@ -78,54 +78,47 @@ export default function FollowersScreen() {
     queryClient.invalidateQueries({ queryKey: ['following-count'] });
   };
 
-  const confirmRemove = (user: User) => {
+  const confirmRemove = async (user: User) => {
     const name = user.display_name || user.username;
-    Alert.alert('Follower entfernen', `Möchtest du ${name} als Follower entfernen?`, [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Entfernen',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeFollower(user.id);
-          } catch {
-            // Fehler meldet der Hook per Toast
-          }
-          invalidateFollowLists();
-        },
-      },
-    ]);
+    const ok = await confirmAction({
+      title: 'Follower entfernen',
+      message: `Möchtest du ${name} als Follower entfernen?`,
+      confirmText: 'Entfernen',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await removeFollower(user.id);
+    } catch {
+      // Fehler meldet der Hook per Toast
+    }
+    invalidateFollowLists();
   };
 
-  const confirmBlock = (user: User) => {
+  const confirmBlock = async (user: User) => {
     const name = user.display_name || user.username;
-    Alert.alert(
-      'Blockieren',
-      `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Blockieren',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await blockUser(user.id);
-            } catch {
-              // Fehler meldet der Hook per Toast
-            }
-            invalidateFollowLists();
-          },
-        },
-      ],
-    );
+    const ok = await confirmAction({
+      title: 'Blockieren',
+      message: `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
+      confirmText: 'Blockieren',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await blockUser(user.id);
+    } catch {
+      // Fehler meldet der Hook per Toast
+    }
+    invalidateFollowLists();
   };
 
-  const openMenu = (user: User) => {
-    Alert.alert(user.display_name || user.username, undefined, [
-      { text: 'Entfernen', onPress: () => confirmRemove(user) },
-      { text: 'Blockieren', style: 'destructive', onPress: () => confirmBlock(user) },
-      { text: 'Abbrechen', style: 'cancel' },
+  const openMenu = async (user: User) => {
+    const choice = await chooseAction(user.display_name || user.username, [
+      { label: 'Entfernen', value: 'remove' },
+      { label: 'Blockieren', value: 'block', destructive: true },
     ]);
+    if (choice === 'remove') await confirmRemove(user);
+    if (choice === 'block') await confirmBlock(user);
   };
 
   const renderItem = ({ item }: { item: User }) => {

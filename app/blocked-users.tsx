@@ -5,13 +5,13 @@ import {
   FlatList,
   SafeAreaView,
   Pressable,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants';
+import { confirmAction } from '../lib/dialog';
 import { useBlock } from '../hooks/useBlock';
 import { supabase } from '../lib/supabase';
 import Avatar from '../components/ui/Avatar';
@@ -56,21 +56,15 @@ export default function BlockedUsersScreen() {
     loadData();
   }, [loadData]);
 
-  const handleUnblock = (blockedId: string, displayName?: string) => {
-    Alert.alert(
-      'Entblocken',
-      `Möchtest du ${displayName || 'diesen Benutzer'} wirklich entblocken?`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Entblocken',
-          onPress: async () => {
-            await unblockUser(blockedId);
-            setUsers((prev) => prev.filter((u) => u.blocked_id !== blockedId));
-          },
-        },
-      ],
-    );
+  const handleUnblock = async (blockedId: string, displayName?: string) => {
+    const ok = await confirmAction({
+      title: 'Entblocken',
+      message: `Möchtest du ${displayName || 'diesen Benutzer'} wirklich entblocken?`,
+      confirmText: 'Entblocken',
+    });
+    if (!ok) return;
+    await unblockUser(blockedId);
+    setUsers((prev) => prev.filter((u) => u.blocked_id !== blockedId));
   };
 
   const renderItem = ({ item }: { item: BlockedUserItem }) => (

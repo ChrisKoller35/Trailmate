@@ -8,7 +8,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants';
 import { showInfoToast, showSuccessToast } from '../lib/toast';
+import { chooseAction, confirmAction } from '../lib/dialog';
 import { useDMs } from '../hooks/useDMs';
 import { useModeration } from '../hooks/useModeration';
 import { checkRateLimit } from '../hooks/useModeration';
@@ -87,50 +87,42 @@ export default function ChatScreen() {
     setSending(false);
   };
 
-  const handleReport = (messageId: string) => {
-    Alert.alert('Nachricht melden', 'Möchtest du diese Nachricht melden?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Melden',
-        style: 'destructive',
-        onPress: () => {
-          reportContent({ messageId, reason: 'abuse' });
-          showSuccessToast('Die Nachricht wurde gemeldet.');
-        },
-      },
-    ]);
+  const handleReport = async (messageId: string) => {
+    const ok = await confirmAction({
+      title: 'Nachricht melden',
+      message: 'Möchtest du diese Nachricht melden?',
+      confirmText: 'Melden',
+      destructive: true,
+    });
+    if (!ok) return;
+    reportContent({ messageId, reason: 'abuse' });
+    showSuccessToast('Die Nachricht wurde gemeldet.');
   };
 
-  const confirmBlock = () => {
+  const confirmBlock = async () => {
     if (!otherUserId) return;
     const name = otherUser?.display_name || otherUser?.username || 'diese Person';
-    Alert.alert(
-      'Blockieren',
-      `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Blockieren',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await blockUser(otherUserId);
-            } catch {
-              // Fehler meldet der Hook per Toast
-              return;
-            }
-            router.replace('/messages');
-          },
-        },
-      ],
-    );
+    const ok = await confirmAction({
+      title: 'Blockieren',
+      message: `Möchtest du ${name} blockieren? Ihr folgt euch danach gegenseitig nicht mehr.`,
+      confirmText: 'Blockieren',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await blockUser(otherUserId);
+    } catch {
+      // Fehler meldet der Hook per Toast
+      return;
+    }
+    router.replace('/messages');
   };
 
-  const openMenu = () => {
-    Alert.alert(otherUser?.display_name || otherUser?.username || 'Chat', undefined, [
-      { text: 'Blockieren', style: 'destructive', onPress: confirmBlock },
-      { text: 'Abbrechen', style: 'cancel' },
+  const openMenu = async () => {
+    const choice = await chooseAction(otherUser?.display_name || otherUser?.username || 'Chat', [
+      { label: 'Blockieren', value: 'block', destructive: true },
     ]);
+    if (choice === 'block') await confirmBlock();
   };
 
   const renderMessage =({ item }: { item: DirectMessage }) => {

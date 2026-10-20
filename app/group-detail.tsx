@@ -5,7 +5,6 @@ import {
   FlatList,
   SafeAreaView,
   Pressable,
-  Alert,
   ActivityIndicator,
   Share,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants';
+import { chooseAction, confirmAction } from '../lib/dialog';
 import { useGroups } from '../hooks/useGroups';
 import { useEvents } from '../hooks/useEvents';
 import { useAuthStore } from '../stores/authStore';
@@ -76,34 +76,38 @@ export default function GroupDetailScreen() {
     await loadDetail();
   };
 
-  const handleLeave = () => {
-    Alert.alert('Gruppe verlassen', 'Möchtest du diese Gruppe wirklich verlassen?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Verlassen',
-        style: 'destructive',
-        onPress: async () => {
-          if (!id) return;
-          await leaveGroup(id);
-          router.back();
-        },
-      },
-    ]);
+  const handleLeave = async () => {
+    const ok = await confirmAction({
+      title: 'Gruppe verlassen',
+      message: 'Möchtest du diese Gruppe wirklich verlassen?',
+      confirmText: 'Verlassen',
+      destructive: true,
+    });
+    if (!ok || !id) return;
+    await leaveGroup(id);
+    router.back();
   };
 
-  const handleDelete = () => {
-    Alert.alert('Gruppe löschen', 'Diese Aktion kann nicht rückgängig gemacht werden.', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Löschen',
-        style: 'destructive',
-        onPress: async () => {
-          if (!id) return;
-          await deleteGroup(id);
-          router.back();
-        },
-      },
+  const handleDelete = async () => {
+    const ok = await confirmAction({
+      title: 'Gruppe löschen',
+      message: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+      confirmText: 'Löschen',
+      destructive: true,
+    });
+    if (!ok || !id) return;
+    await deleteGroup(id);
+    router.back();
+  };
+
+  const handleManageMember = async (userId: string) => {
+    const choice = await chooseAction('Mitglied verwalten', [
+      { label: 'Zum Mod machen', value: 'mod' },
+      { label: 'Entfernen', value: 'remove', destructive: true },
     ]);
+    if (!id) return;
+    if (choice === 'mod') await updateMemberRole(id, userId, 'moderator');
+    if (choice === 'remove') await removeMember(id, userId);
   };
 
   const handleShareInvite = async () => {
@@ -151,20 +155,7 @@ export default function GroupDetailScreen() {
         </View>
         {isAdmin && !isMe && (
           <Pressable
-            onPress={() =>
-              Alert.alert('Mitglied verwalten', '', [
-                {
-                  text: 'Zum Mod machen',
-                  onPress: () => updateMemberRole(id!, item.user_id, 'moderator'),
-                },
-                {
-                  text: 'Entfernen',
-                  style: 'destructive',
-                  onPress: () => removeMember(id!, item.user_id),
-                },
-                { text: 'Abbrechen', style: 'cancel' },
-              ])
-            }
+            onPress={() => handleManageMember(item.user_id)}
           >
             <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textSecondary} />
           </Pressable>
