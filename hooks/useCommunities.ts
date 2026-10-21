@@ -284,38 +284,44 @@ export function useCommunities() {
       },
 
       getJoinRequests: async (communityId: string): Promise<CommunityJoinRequest[]> => {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('community_join_requests')
           .select('*, user:users(username, display_name, avatar_url)')
           .eq('community_id', communityId)
           .eq('status', 'pending');
+        if (error) throw new Error(error.message);
         return (data ?? []) as CommunityJoinRequest[];
       },
 
+      // Erst Mitglied eintragen, dann Anfrage schliessen: scheitert das Eintragen,
+      // bleibt die Anfrage offen. Bereits Mitglied (23505) gilt als Erfolg.
       approveJoinRequest: async (communityId: string, targetUserId: string) => {
         if (!userId) return;
-        await supabase
+        const { error: insertError } = await supabase
+          .from('community_members')
+          .insert({ community_id: communityId, user_id: targetUserId, role: 'member' });
+        if (insertError && insertError.code !== '23505') throw new Error(insertError.message);
+
+        const { error: updateError } = await supabase
           .from('community_join_requests')
           .update({ status: 'accepted' })
           .eq('community_id', communityId)
           .eq('user_id', targetUserId)
           .eq('status', 'pending');
-
-        await supabase
-          .from('community_members')
-          .insert({ community_id: communityId, user_id: targetUserId, role: 'member' });
+        if (updateError) throw new Error(updateError.message);
 
         queryClient.invalidateQueries({ queryKey: queryKeys.communities.mine(userId!) });
       },
 
       rejectJoinRequest: async (communityId: string, targetUserId: string) => {
         if (!userId) return;
-        await supabase
+        const { error } = await supabase
           .from('community_join_requests')
           .update({ status: 'rejected' })
           .eq('community_id', communityId)
           .eq('user_id', targetUserId)
           .eq('status', 'pending');
+        if (error) throw new Error(error.message);
       },
 
       deleteCommunity: async (communityId: string) => {
