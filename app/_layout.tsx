@@ -7,6 +7,7 @@ import { queryClient } from '../lib/queryClient';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { useRegisterPushToken } from '../hooks/useNotifications';
+import { ToastHost } from '../components/ui/ToastHost';
 import type { User } from '../types';
 
 class ErrorBoundary extends React.Component<
@@ -209,6 +210,7 @@ export default function RootLayout() {
         <Stack.Screen name="premium" options={{ presentation: 'modal', headerShown: true, title: 'Premium' }} />
         <Stack.Screen name="notifications" options={{ presentation: 'card', headerShown: true, title: 'Benachrichtigungen' }} />
       </Stack>
+      <ToastHost />
     </QueryClientProvider>
     </ErrorBoundary>
   );
