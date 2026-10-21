@@ -9,22 +9,22 @@
 //      a shortcut to the system Settings so the user can fix it manually.
 //   5. Return false.
 
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
+import { confirmAction } from '../lib/dialog';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function showSettingsAlert(message: string): void {
-  Alert.alert(
-    'Berechtigung benötigt',
+  void confirmAction({
+    title: 'Berechtigung benötigt',
     message,
-    [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Einstellungen öffnen', onPress: () => Linking.openSettings() },
-    ],
-  );
+    confirmText: 'Einstellungen öffnen',
+  }).then((ok) => {
+    if (ok) Linking.openSettings();
+  });
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
