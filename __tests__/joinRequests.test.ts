@@ -63,28 +63,42 @@ beforeEach(() => {
   mockErrorFor = null;
 });
 
+function useJoinRequestApi(kind: 'group' | 'community') {
+  const groups = useGroups();
+  const { manageCommunity } = useCommunities();
+  return kind === 'group' ? groups : manageCommunity;
+}
+
 const variants = [
   {
     name: 'useGroups',
+    kind: 'group' as const,
     members: 'group_members',
     requests: 'group_join_requests',
     key: 'group_id',
-    approve: (id: string, u: string) => useGroups().approveJoinRequest(id, u),
-    reject: (id: string, u: string) => useGroups().rejectJoinRequest(id, u),
   },
   {
     name: 'useCommunities',
+    kind: 'community' as const,
     members: 'community_members',
     requests: 'community_join_requests',
     key: 'community_id',
-    approve: (id: string, u: string) => useCommunities().manageCommunity.approveJoinRequest(id, u),
-    reject: (id: string, u: string) => useCommunities().manageCommunity.rejectJoinRequest(id, u),
   },
 ];
 
 describe.each(variants)('$name join requests', (v) => {
+  let approve: (id: string, u: string) => Promise<void>;
+  let reject: (id: string, u: string) => Promise<void>;
+
+  beforeEach(() => {
+    const api = useJoinRequestApi(v.kind);
+    approve = api.approveJoinRequest;
+    reject = api.rejectJoinRequest;
+    mockRecorded.length = 0;
+  });
+
   it('approve inserts the member first, then marks the request accepted', async () => {
-    await v.approve('g1', 'other');
+    await approve('g1', 'other');
 
     expect(mockRecorded.map((q) => `${q.op}:${q.table}`)).toEqual([
       `insert:${v.members}`,
@@ -100,25 +114,25 @@ describe.each(variants)('$name join requests', (v) => {
   it('approve throws and leaves the request pending when inserting fails', async () => {
     mockErrorFor = (q) => (q.op === 'insert' ? { message: 'denied', code: '42501' } : null);
 
-    await expect(v.approve('g1', 'other')).rejects.toThrow('denied');
+    await expect(approve('g1', 'other')).rejects.toThrow('denied');
     expect(mockRecorded.filter((q) => q.op === 'update')).toHaveLength(0);
   });
 
   it('approve treats an existing membership as success', async () => {
     mockErrorFor = (q) => (q.op === 'insert' ? { message: 'duplicate', code: '23505' } : null);
 
-    await expect(v.approve('g1', 'other')).resolves.toBeUndefined();
+    await expect(approve('g1', 'other')).resolves.toBeUndefined();
     expect(mockRecorded[1]).toMatchObject({ op: 'update', payload: { status: 'accepted' } });
   });
 
   it('approve throws when closing the request fails', async () => {
     mockErrorFor = (q) => (q.op === 'update' ? { message: 'boom' } : null);
 
-    await expect(v.approve('g1', 'other')).rejects.toThrow('boom');
+    await expect(approve('g1', 'other')).rejects.toThrow('boom');
   });
 
   it('reject only marks the request rejected', async () => {
-    await v.reject('g1', 'other');
+    await reject('g1', 'other');
 
     expect(mockRecorded).toEqual([
       {
@@ -133,6 +147,6 @@ describe.each(variants)('$name join requests', (v) => {
   it('reject throws on error', async () => {
     mockErrorFor = () => ({ message: 'boom' });
 
-    await expect(v.reject('g1', 'other')).rejects.toThrow('boom');
+    await expect(reject('g1', 'other')).rejects.toThrow('boom');
   });
 });
