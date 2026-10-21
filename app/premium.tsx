@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, SafeAreaView, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
+import { showInfoToast } from '../lib/toast';
 
 const FEATURES = [
   'Offline-Karten',
@@ -17,7 +18,7 @@ export default function PremiumScreen() {
   // Premium is set server-side only (migration 009). Until the in-app purchase
   // is wired up, the button only explains that the purchase is coming.
   const handleActivate = () => {
-    Alert.alert('Premium', 'Der Kauf über den App Store kommt bald.');
+    showInfoToast('Der Kauf über den App Store kommt bald.');
   };
 
   return (

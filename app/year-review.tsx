@@ -5,13 +5,13 @@ import {
   SafeAreaView,
   ScrollView,
   Pressable,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
+import { showInfoToast } from '../lib/toast';
 import { useAuthStore } from '../stores/authStore';
 import { useStats, useMonthlyActivity } from '../hooks/useStats';
 
@@ -125,7 +125,7 @@ export default function YearReviewScreen() {
         {/* Action buttons */}
         <Pressable
           style={styles.actionButton}
-          onPress={() => Alert.alert('Teilen', 'Teilen-Funktion kommt bald!')}
+          onPress={() => showInfoToast('Teilen-Funktion kommt bald!')}
         >
           <Ionicons name="share-social-outline" size={20} color="#fff" />
           <Text style={styles.actionButtonText}>Im Feed teilen</Text>
@@ -133,9 +133,7 @@ export default function YearReviewScreen() {
 
         <Pressable
           style={styles.secondaryButton}
-          onPress={() =>
-            Alert.alert('Speichern', 'Als Bild speichern kommt bald!')
-          }
+          onPress={() => showInfoToast('Als Bild speichern kommt bald!')}
         >
           <Ionicons name="image-outline" size={20} color={Colors.primary} />
           <Text style={styles.secondaryButtonText}>Als Bild speichern</Text>
