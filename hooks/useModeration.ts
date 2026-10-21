@@ -4,7 +4,8 @@ import { useAuthStore } from '../stores/authStore';
 import type { ReportReason } from '../types';
 
 // ─── Constants ─────────────────────────────────────────────
-export const MAX_POSTS_PER_HOUR = 50;
+// Muss zu den Triggern in supabase/migrations/015_limits.sql passen.
+export const MAX_POSTS_PER_HOUR = 5;
 export const MAX_DMS_PER_DAY = 50;
 
 // Word filter (insults, spam keywords, etc.)

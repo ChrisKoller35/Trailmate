@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { queryKeys } from '../lib/queryKeys';
+import { showErrorToast } from '../lib/toast';
 import type { DirectMessage } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -172,16 +173,22 @@ export function useDMs() {
       );
       queryClient.invalidateQueries({ queryKey: queryKeys.dms.conversations(userId!) });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== ctx?.optimisticId));
-      console.error('Nachricht senden fehlgeschlagen');
+      console.error('Nachricht senden fehlgeschlagen', err);
+      // Limit-Fehler der Datenbank (015_limits) haben eine verständliche Meldung
+      const code = (err as { code?: string }).code;
+      showErrorToast(
+        code === '23514' && err.message ? err.message : 'Nachricht konnte nicht gesendet werden.',
+      );
     },
   });
 
+  // Fehler zeigt onError als Toast; der Aufrufer erhält null statt einer Ablehnung.
   const sendMessage = useCallback(
-    (receiverId: string, content: string) =>
-      sendMessageMutation.mutateAsync({ receiverId, content }),
+    (receiverId: string, content: string): Promise<DirectMessage | null> =>
+      sendMessageMutation.mutateAsync({ receiverId, content }).catch(() => null),
     [sendMessageMutation],
   );
 
