@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
@@ -34,6 +33,8 @@ import {
 } from '../../lib/trackingCalculations';
 import { setActiveRecordingId, getActiveRecordingId } from '../../lib/trackPointStorage';
 import { SWISSTOPO_STYLE_JSON } from '../../lib/mapStyle';
+import { chooseAction, confirmAction } from '../../lib/dialog';
+import { showErrorToast, showInfoToast } from '../../lib/toast';
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -70,26 +71,21 @@ export default function RecordScreen() {
     });
 
     // Check for unfinished recording (crash recovery)
-    getActiveRecordingId().then((activeId) => {
-      if (activeId && useRecordingStore.getState().status === 'idle') {
-        Alert.alert(
-          'Unfertige Tour gefunden',
-          'Es wurde eine nicht abgeschlossene Aufzeichnung gefunden. Möchtest du sie wiederherstellen?',
-          [
-            {
-              text: 'Verwerfen',
-              style: 'destructive',
-              onPress: () => setActiveRecordingId(null),
-            },
-            {
-              text: 'Wiederherstellen',
-              onPress: async () => {
-                await useRecordingStore.getState().recoverFromCrash(activeId);
-                router.push('/tour-summary');
-              },
-            },
-          ],
-        );
+    getActiveRecordingId().then(async (activeId) => {
+      if (!activeId || useRecordingStore.getState().status !== 'idle') return;
+      const choice = await chooseAction(
+        'Unfertige Tour gefunden',
+        [
+          { label: 'Wiederherstellen', value: 'recover' },
+          { label: 'Verwerfen', value: 'discard', destructive: true },
+        ],
+        'Es wurde eine nicht abgeschlossene Aufzeichnung gefunden. Möchtest du sie wiederherstellen?',
+      );
+      if (choice === 'discard') {
+        await setActiveRecordingId(null);
+      } else if (choice === 'recover') {
+        await useRecordingStore.getState().recoverFromCrash(activeId);
+        router.push('/tour-summary');
       }
     });
   }, [router, requestTrackingPermissions]);
@@ -173,7 +169,7 @@ export default function RecordScreen() {
     if (!result.success) {
       // GPS could not be started – reset recording state
       useRecordingStore.getState().reset();
-      Alert.alert('GPS-Fehler', result.error ?? 'GPS konnte nicht gestartet werden.');
+      showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
     }
   }, [permissionGranted, startRecording, requestTrackingPermissions]);
 
@@ -187,38 +183,29 @@ export default function RecordScreen() {
     await setTrackingAccuracy('high');
   }, [resumeRecording]);
 
-  const handleStop = useCallback(() => {
-    Alert.alert(
-      'Tour beenden?',
-      'Möchtest du die aktuelle Aufzeichnung beenden?',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Beenden',
-          style: 'destructive',
-          onPress: async () => {
-            await stopTracking();
-            const store = useRecordingStore.getState();
-            const points = store.trackPoints;
-            if (points.length === 0) {
-              store.reset();
-              await setActiveRecordingId(null);
-              Alert.alert(
-                'Keine Daten',
-                'Es wurden keine GPS-Punkte aufgezeichnet.',
-              );
-              return;
-            }
-            // Apply trailing drift correction
-            const corrected = applyTrailingDriftCorrection(points);
-            useRecordingStore.setState({ trackPoints: corrected });
-            stopRecordingAction();
-            await setActiveRecordingId(null);
-            router.push('/tour-summary');
-          },
-        },
-      ],
-    );
+  const handleStop = useCallback(async () => {
+    const ok = await confirmAction({
+      title: 'Tour beenden?',
+      message: 'Möchtest du die aktuelle Aufzeichnung beenden?',
+      confirmText: 'Beenden',
+      destructive: true,
+    });
+    if (!ok) return;
+    await stopTracking();
+    const store = useRecordingStore.getState();
+    const points = store.trackPoints;
+    if (points.length === 0) {
+      store.reset();
+      await setActiveRecordingId(null);
+      showInfoToast('Es wurden keine GPS-Punkte aufgezeichnet.');
+      return;
+    }
+    // Apply trailing drift correction
+    const corrected = applyTrailingDriftCorrection(points);
+    useRecordingStore.setState({ trackPoints: corrected });
+    stopRecordingAction();
+    await setActiveRecordingId(null);
+    router.push('/tour-summary');
   }, [stopRecordingAction, router]);
 
   const isActive = status === 'recording' || status === 'paused';
