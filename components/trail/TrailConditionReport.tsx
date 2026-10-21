@@ -11,11 +11,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants';
+import { showErrorToast } from '../../lib/toast';
 import { useTrailConditions } from '../../hooks/useTrailConditions';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -114,7 +114,7 @@ export default function TrailConditionReport({
 
   const handleSubmit = async () => {
     if (selectedConditions.size === 0) {
-      Alert.alert('Bitte wähle mindestens einen Wegzustand aus.');
+      showErrorToast('Bitte wähle mindestens einen Wegzustand aus.');
       return;
     }
 
@@ -144,8 +144,7 @@ export default function TrailConditionReport({
       onSubmitted();
       onClose();
     } catch (err) {
-      Alert.alert(
-        'Fehler',
+      showErrorToast(
         err instanceof Error
           ? err.message
           : 'Der Bericht konnte nicht gesendet werden.',
