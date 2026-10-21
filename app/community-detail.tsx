@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Colors } from '../constants';
 import { confirmAction } from '../lib/dialog';
 import { useCommunities } from '../hooks/useCommunities';
@@ -31,6 +31,7 @@ export default function CommunityDetailScreen() {
     requestToJoin,
     leaveCommunity,
     getCommunityRole,
+    manageCommunity,
   } = useCommunities();
 
   useEvents();
@@ -43,6 +44,7 @@ export default function CommunityDetailScreen() {
 
   const isMember = myRole !== null;
   const isAdmin = myRole === 'admin';
+  const isMod = myRole === 'moderator';
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -61,6 +63,18 @@ export default function CommunityDetailScreen() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  // Zahl offener Anfragen bei jeder Rückkehr auf den Screen neu laden
+  const [requestCount, setRequestCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (!id || !(isAdmin || isMod)) return;
+      manageCommunity
+        .getJoinRequests(id)
+        .then((r) => setRequestCount(r.length))
+        .catch(() => setRequestCount(0));
+    }, [id, isAdmin, isMod, manageCommunity]),
+  );
 
   const handleJoin = async () => {
     if (!id) return;
@@ -171,13 +185,22 @@ export default function CommunityDetailScreen() {
             <Button title="Beitreten" onPress={handleJoin} />
           ) : (
             <View style={styles.memberActions}>
-              {(isAdmin || myRole === 'moderator') && (
+              {(isAdmin || isMod) && (
                 <Pressable
                   style={styles.actionButton}
                   onPress={() => router.push(`/create-event?communityId=${id}`)}
                 >
                   <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
                   <Text style={styles.actionButtonText}>Event erstellen</Text>
+                </Pressable>
+              )}
+              {(isAdmin || isMod) && (
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => router.push({ pathname: '/join-requests', params: { type: 'community', id } })}
+                >
+                  <Ionicons name="person-add-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.actionButtonText}>Anfragen ({requestCount})</Text>
                 </Pressable>
               )}
               <Pressable style={styles.actionButton} onPress={handleLeave}>
@@ -332,6 +355,7 @@ const styles = StyleSheet.create({
   },
   memberActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
   },

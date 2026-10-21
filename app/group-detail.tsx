@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Colors } from '../constants';
 import { chooseAction, confirmAction } from '../lib/dialog';
 import { useGroups } from '../hooks/useGroups';
@@ -35,6 +35,7 @@ export default function GroupDetailScreen() {
     updateMemberRole,
     deleteGroup,
     getGroupRole,
+    getJoinRequests,
   } = useGroups();
 
   const { respondToEvent, getEventResponses } = useEvents();
@@ -69,6 +70,17 @@ export default function GroupDetailScreen() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  // Zahl offener Anfragen bei jeder Rückkehr auf den Screen neu laden
+  const [requestCount, setRequestCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (!id || !(isAdmin || isMod)) return;
+      getJoinRequests(id)
+        .then((r) => setRequestCount(r.length))
+        .catch(() => setRequestCount(0));
+    }, [id, isAdmin, isMod, getJoinRequests]),
+  );
 
   const handleJoin = async () => {
     if (!id) return;
@@ -290,6 +302,15 @@ export default function GroupDetailScreen() {
                 >
                   <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
                   <Text style={styles.actionButtonText}>Event</Text>
+                </Pressable>
+              )}
+              {(isAdmin || isMod) && (
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => router.push({ pathname: '/join-requests', params: { type: 'group', id } })}
+                >
+                  <Ionicons name="person-add-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.actionButtonText}>Anfragen ({requestCount})</Text>
                 </Pressable>
               )}
               <Pressable style={styles.actionButton} onPress={handleLeave}>
