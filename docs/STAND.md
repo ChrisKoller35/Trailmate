@@ -43,3 +43,5 @@ Alle drei gehören zu Meilenstein M1 „Grün und sicher“ ([`docs/ROADMAP.md`]
 *Nachtrag:* Migration 015 (Test `supabase/tests/015_limits.test.sql`) behebt Ist-Soll 06, Sicherheitsauffälligkeit 3: höchstens 5 Beiträge pro Stunde, kein gleicher Text innerhalb 24 h und höchstens 50 Direktnachrichten pro 24 h, serverseitig per Trigger; `created_at` setzt der Server.
 
 *Nachtrag:* Migration 017 (Test `supabase/tests/017_beitritt_nur_durch_admins.test.sql`) ergänzt 012: Mitglied wird man nur noch als Ersteller, durch Admin/Mod oder per Self-Join in eine öffentliche Gruppe. Wer austritt oder entfernt wird, verliert seine angenommene Anfrage und kann neu anfragen, aber nicht selbst wieder eintreten.
+
+*Nachtrag:* Migration 018 (Test `supabase/tests/018_folgen_privat.test.sql`) schliesst eine Lücke bei privaten Profilen: Direkt folgen geht nur noch bei öffentlichen Profilen, bei privaten entsteht die Folge erst, wenn die Person die Anfrage annimmt (vorher scheiterte jede Annahme, und die App folgte privaten Profilen ohne Anfrage). Abgelehnte oder nach dem Entfolgen übrige Anfragen blockieren keine neue Anfrage mehr.

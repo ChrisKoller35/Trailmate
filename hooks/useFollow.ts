@@ -32,17 +32,20 @@ export function useFollow() {
   // ─── Mutations ────────────────────────────────────────────
   const followMutation = useMutation({
     mutationFn: async (targetUserId: string) => {
+      // Private Profile sind für Nicht-Follower unsichtbar (users_select).
+      // Keine Zeile heisst darum: privat, also Anfrage statt direkt folgen.
       const { data: targetUser } = await supabase
         .from('users')
         .select('is_private')
         .eq('id', targetUserId)
-        .single();
+        .maybeSingle();
 
-      if (targetUser?.is_private) {
+      if (!targetUser || targetUser.is_private) {
         const { error } = await supabase
           .from('follow_requests')
           .insert({ requester_id: userId!, target_id: targetUserId, status: 'pending' });
-        if (error) throw error;
+        // 23505: Anfrage läuft schon, das gilt als Erfolg.
+        if (error && error.code !== '23505') throw error;
       } else {
         const { error } = await supabase
           .from('follows')
@@ -112,12 +115,7 @@ export function useFollow() {
         console.error('Accept follow request failed:', updateError);
         throw updateError;
       }
-
-      const { error: insertError } = await supabase
-        .from('follows')
-        .insert({ follower_id: requesterId, following_id: userId! });
-
-      if (insertError) console.error('Follow insert failed:', insertError);
+      // Die Folge legt der Server beim Annehmen an (Trigger aus Migration 018).
     },
     onMutate: async (requesterId: string) => {
       const theKey = queryKeys.follow.requests(userId ?? '');
@@ -141,9 +139,10 @@ export function useFollow() {
 
   const rejectFollowRequestMutation = useMutation({
     mutationFn: async (requesterId: string) => {
+      // Löschen statt 'rejected', damit später eine neue Anfrage möglich ist.
       const { error } = await supabase
         .from('follow_requests')
-        .update({ status: 'rejected' })
+        .delete()
         .eq('requester_id', requesterId)
         .eq('target_id', userId!)
         .eq('status', 'pending');
