@@ -9,13 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Colors } from '../../constants';
 import Avatar from '../ui/Avatar';
 import { usePostActions } from '../../hooks/usePostActions';
 import { useAuthStore } from '../../stores/authStore';
+import { chooseAction } from '../../lib/dialog';
+import { showErrorToast, showInfoToast, showSuccessToast } from '../../lib/toast';
 import type { Comment } from '../../types';
 
 interface CommentWithUser extends Comment {
@@ -96,25 +98,31 @@ export default function CommentSection({
     onCommentCountChange?.(-1);
   };
 
-  const handleReportComment = (commentId: string) => {
-    Alert.alert('Kommentar melden', 'Warum möchtest du diesen Kommentar melden?', [
-      { text: 'Spam', onPress: () => doReport(commentId, 'spam') },
-      { text: 'Beleidigung', onPress: () => doReport(commentId, 'abuse') },
-      { text: 'Unangemessen', onPress: () => doReport(commentId, 'inappropriate') },
-      { text: 'Abbrechen', style: 'cancel' },
-    ]);
+  const handleReportComment = async (commentId: string) => {
+    const reason = await chooseAction(
+      'Kommentar melden',
+      [
+        { label: 'Spam', value: 'spam' },
+        { label: 'Beleidigung', value: 'abuse' },
+        { label: 'Unangemessen', value: 'inappropriate' },
+      ],
+      'Warum möchtest du diesen Kommentar melden?',
+    );
+    if (reason === 'spam' || reason === 'abuse' || reason === 'inappropriate') {
+      await doReport(commentId, reason);
+    }
   };
 
   const doReport = async (commentId: string, reason: 'spam' | 'abuse' | 'fake' | 'inappropriate') => {
     try {
       const alreadyReported = await reportComment(commentId, reason);
       if (alreadyReported) {
-        Alert.alert('Schon gemeldet', 'Du hast diesen Kommentar schon gemeldet.');
+        showInfoToast('Du hast diesen Kommentar schon gemeldet.');
       } else {
-        Alert.alert('Gemeldet', 'Danke für deine Meldung. Wir prüfen den Kommentar.');
+        showSuccessToast('Danke für deine Meldung. Wir prüfen den Kommentar.');
       }
     } catch {
-      Alert.alert('Fehler', 'Meldung konnte nicht gesendet werden.');
+      showErrorToast('Meldung konnte nicht gesendet werden.');
     }
   };
 
@@ -157,7 +165,9 @@ export default function CommentSection({
               <Avatar uri={item.avatar_url} size={32} />
               <View style={styles.commentContent}>
                 <View style={styles.commentHeader}>
-                  <Text style={styles.commentUsername}>@{item.username}</Text>
+                  <Pressable onPress={() => router.push(`/user-profile?id=${item.user_id}`)} hitSlop={4}>
+                    <Text style={styles.commentUsername}>@{item.username}</Text>
+                  </Pressable>
                   <Text style={styles.commentTime}>
                     {formatTimeAgo(item.created_at)}
                   </Text>

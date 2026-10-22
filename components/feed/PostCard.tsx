@@ -118,7 +118,11 @@ export default function PostCard({
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.userInfo}>
+        <Pressable
+          style={styles.userInfo}
+          onPress={() => router.push(`/user-profile?id=${post.user_id}`)}
+          accessibilityRole="link"
+        >
           <Avatar uri={post.avatar_url} size={40} />
           <View style={styles.userMeta}>
             <Text style={styles.username} numberOfLines={1}>
@@ -126,7 +130,7 @@ export default function PostCard({
             </Text>
             <Text style={styles.timestamp}>{formatTimeAgo(post.created_at)}</Text>
           </View>
-        </View>
+        </Pressable>
         <Pressable style={styles.moreButton} onPress={() => setMenuOpen(true)}>
           <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textSecondary} />
         </Pressable>
