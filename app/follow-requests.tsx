@@ -12,12 +12,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants';
 import { useFollow } from '../hooks/useFollow';
+import { fetchProfileCards, type ProfileCard } from '../hooks/useProfileCards';
 import { supabase } from '../lib/supabase';
 import Avatar from '../components/ui/Avatar';
 import type { FollowRequest, User } from '../types';
 
+type RequestUser = Partial<User> & Pick<ProfileCard, 'username' | 'display_name' | 'avatar_url'>;
+
 interface RequestWithUser extends FollowRequest {
-  user?: User;
+  user?: RequestUser;
 }
 
 export default function FollowRequestsScreen() {
@@ -43,10 +46,27 @@ export default function FollowRequestsScreen() {
         .in('id', userIds);
 
       const userMap = new Map((users ?? []).map((u: User) => [u.id, u]));
-      const enriched: RequestWithUser[] = reqs.map((r) => ({
-        ...r,
-        user: userMap.get(r.requester_id) as User | undefined,
-      }));
+      // Private Profile blendet RLS aus: fehlende Namen per Profilkarte nachladen.
+      const missing = userIds.filter((uid) => {
+        const u = userMap.get(uid);
+        return !u?.username || !u?.avatar_url;
+      });
+      const cards = new Map((await fetchProfileCards(missing).catch(() => [])).map((c) => [c.id, c]));
+      const enriched: RequestWithUser[] = reqs.map((r) => {
+        const u = userMap.get(r.requester_id);
+        const card = cards.get(r.requester_id);
+        return {
+          ...r,
+          user: card
+            ? {
+                ...u,
+                username: u?.username || card.username,
+                display_name: u?.display_name || card.display_name,
+                avatar_url: u?.avatar_url || card.avatar_url,
+              }
+            : u,
+        };
+      });
       setRequests(enriched);
     } finally {
       setLoading(false);
