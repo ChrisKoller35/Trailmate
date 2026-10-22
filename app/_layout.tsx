@@ -140,6 +140,8 @@ function useProtectedRoute() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboardingGroup = segments[0] === '(onboarding)';
+    // Live-Tracking-Empfänger brauchen weder Konto noch Onboarding
+    if (segments[0] === 'track') return;
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
