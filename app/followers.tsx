@@ -21,7 +21,7 @@ import type { User } from '../types';
 export default function FollowersScreen() {
   const profile = useAuthStore((s) => s.profile);
   const queryClient = useQueryClient();
-  const { removeFollower } = useFollow();
+  const { removeFollower, follow } = useFollow();
   const { blockUser } = useBlock();
 
   const { data: followers = [], isLoading } = useQuery({
@@ -60,7 +60,8 @@ export default function FollowersScreen() {
       if (isFollowing) {
         await supabase.from('follows').delete().eq('follower_id', profile!.id).eq('following_id', userId);
       } else {
-        await supabase.from('follows').insert({ follower_id: profile!.id, following_id: userId });
+        // follow() schickt bei privaten Profilen eine Anfrage statt direkt zu folgen
+        await follow(userId);
       }
     },
     onSuccess: () => {
