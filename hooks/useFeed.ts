@@ -80,6 +80,9 @@ export function useFeed() {
         .from('posts')
         .select('*')
         .in('user_id', allIds)
+        // Gruppen- und Community-Beiträge stehen in ihren Detail-Screens
+        .is('group_id', null)
+        .is('community_id', null)
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
