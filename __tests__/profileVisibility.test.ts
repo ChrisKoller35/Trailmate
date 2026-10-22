@@ -18,6 +18,19 @@ describe('getProfileVisibility', () => {
     expect(v).toEqual({ mode: 'unavailable', showPosts: false, showMessage: false });
   });
 
+  it('zeigt «privat», wenn RLS nichts liefert, aber eine private Karte da ist', () => {
+    const v = getProfileVisibility({ ...base, profile: null, card: { is_private: true }, isMutual: true });
+    expect(v).toEqual({ mode: 'private', showPosts: false, showMessage: false });
+  });
+
+  it('zeigt «nicht verfügbar» ohne Karte (blockiert oder gelöscht)', () => {
+    expect(getProfileVisibility({ ...base, profile: null, card: null }).mode).toBe('unavailable');
+  });
+
+  it('zeigt «nicht verfügbar» bei öffentlicher Karte ohne Profil', () => {
+    expect(getProfileVisibility({ ...base, profile: null, card: { is_private: false } }).mode).toBe('unavailable');
+  });
+
   it('zeigt bei privatem Profil ohne Folgen nur den Kopf', () => {
     const v = getProfileVisibility({ ...base, profile: { is_private: true } });
     expect(v).toEqual({ mode: 'private', showPosts: false, showMessage: false });

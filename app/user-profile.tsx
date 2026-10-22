@@ -10,6 +10,7 @@ import { getProfileVisibility, FollowStatus } from '../lib/profileVisibility';
 import { useFollow } from '../hooks/useFollow';
 import { useDMs } from '../hooks/useDMs';
 import { useBlock } from '../hooks/useBlock';
+import { fetchProfileCards, type ProfileCard } from '../hooks/useProfileCards';
 import { useAuthStore } from '../stores/authStore';
 import Avatar from '../components/ui/Avatar';
 import FollowButton from '../components/social/FollowButton';
@@ -55,6 +56,7 @@ export default function UserProfileScreen() {
   const { blockUser } = useBlock();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [card, setCard] = useState<ProfileCard | null>(null);
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
   const [isMutual, setIsMutual] = useState(false);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
@@ -75,6 +77,25 @@ export default function UserProfileScreen() {
       setLoading(false);
       return;
     }
+    if (!data) {
+      // Privat ohne Folgen, blockiert oder gelöscht: nur die Karte nachladen.
+      try {
+        const [found] = await fetchProfileCards([id]);
+        setCard(found ?? null);
+      } catch {
+        setError(true);
+        setLoading(false);
+        return;
+      }
+      setProfile(null);
+      setFollowStatus('none');
+      setIsMutual(false);
+      setCounts({ followers: 0, following: 0 });
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+    setCard(null);
     const [status, mutual, followers, following, postsResult] = await Promise.all([
       getFollowStatus(id),
       canDM(id),
@@ -100,7 +121,9 @@ export default function UserProfileScreen() {
     load();
   }, [load]);
 
-  const visibility = getProfileVisibility({ viewerId, profileId: id ?? '', profile, followStatus, isMutual });
+  const visibility = getProfileVisibility({ viewerId, profileId: id ?? '', profile, card, followStatus, isMutual });
+  // Kopfdaten: volles Profil oder, bei privaten Profilen, die Karte
+  const head = profile ?? (visibility.mode === 'private' ? card : null);
 
   useEffect(() => {
     if (visibility.mode === 'own') router.replace('/(tabs)/profile');
@@ -125,7 +148,7 @@ export default function UserProfileScreen() {
     if (!id) return;
     const ok = await confirmAction({
       title: 'Blockieren?',
-      message: `@${profile?.username ?? ''} kann dir nicht mehr folgen, schreiben oder deine Beiträge sehen.`,
+      message: `@${head?.username ?? ''} kann dir nicht mehr folgen, schreiben oder deine Beiträge sehen.`,
       confirmText: 'Blockieren',
       destructive: true,
     });
@@ -152,8 +175,8 @@ export default function UserProfileScreen() {
     <Stack.Screen
       options={{
         headerShown: true,
-        title: profile ? `@${profile.username}` : 'Profil',
-        headerRight: profile
+        title: head ? `@${head.username}` : 'Profil',
+        headerRight: head
           ? () => (
               <Pressable onPress={openMenu} hitSlop={8} accessibilityLabel="Weitere Aktionen">
                 <Ionicons name="ellipsis-horizontal" size={22} color={Colors.text} />
@@ -173,7 +196,7 @@ export default function UserProfileScreen() {
     );
   }
 
-  if (error || !profile) {
+  if (error || !head) {
     return (
       <View style={styles.center}>
         {header}
@@ -185,6 +208,28 @@ export default function UserProfileScreen() {
           </Pressable>
         )}
       </View>
+    );
+  }
+
+  if (visibility.mode === 'private' || !profile) {
+    // Nur Kopf und Folgen-Knopf: keine Bio, keine Zahlen, keine Beiträge.
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {header}
+        <View style={styles.head}>
+          <Avatar uri={head.avatar_url} size={88} />
+          <Text style={styles.name}>{head.display_name ?? head.username}</Text>
+          <Text style={styles.username}>@{head.username}</Text>
+          <View style={styles.actions}>
+            <FollowButton targetUserId={head.id} onStatusChange={() => load()} />
+          </View>
+        </View>
+        <View style={styles.privateBox}>
+          <Ionicons name="lock-closed-outline" size={28} color={Colors.textLight} />
+          <Text style={styles.emptyTitle}>Dieses Profil ist privat</Text>
+          <Text style={styles.meta}>Folge dieser Person, um ihre Beiträge zu sehen.</Text>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -213,14 +258,6 @@ export default function UserProfileScreen() {
           )}
         </View>
       </View>
-
-      {visibility.mode === 'private' && (
-        <View style={styles.privateBox}>
-          <Ionicons name="lock-closed-outline" size={28} color={Colors.textLight} />
-          <Text style={styles.emptyTitle}>Privates Profil</Text>
-          <Text style={styles.meta}>Folge dieser Person, um ihre Beiträge zu sehen.</Text>
-        </View>
-      )}
 
       {visibility.showPosts &&
         (posts.length === 0 ? (
