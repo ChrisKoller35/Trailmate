@@ -2,6 +2,7 @@ import {
   searchPlaces,
   stripTags,
   kindFromOrigin,
+  placeToCoordinate,
   isAbortError,
   type Place,
 } from '../lib/placeSearch';
@@ -155,6 +156,25 @@ describe('kindFromOrigin', () => {
     expect(kindFromOrigin('gazetteer')).toBe('Flurname');
     expect(kindFromOrigin('unbekannt')).toBe('Ort');
     expect(kindFromOrigin(undefined)).toBe('Ort');
+  });
+});
+
+describe('placeToCoordinate', () => {
+  const place: Place = {
+    id: 'gg25-1',
+    name: 'Bern',
+    detail: 'bern',
+    latitude: 46.948,
+    longitude: 7.447,
+    kind: 'Gemeinde',
+  };
+
+  it('returns [longitude, latitude] for start and end points', () => {
+    expect(placeToCoordinate(place)).toEqual([7.447, 46.948]);
+  });
+
+  it('returns a new array each time so the map flies again', () => {
+    expect(placeToCoordinate(place)).not.toBe(placeToCoordinate(place));
   });
 });
 
