@@ -16,6 +16,7 @@ import { usePermissions } from '../hooks/usePermissions';
 
 jest.mock('react-native', () => ({
   Alert: { alert: jest.fn() },
+  Platform: { OS: 'ios' },
   Linking: { openSettings: jest.fn() },
 }));
 
@@ -102,6 +103,7 @@ describe('requestLocationPermission', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 });
@@ -149,6 +151,7 @@ describe('requestTrackingPermissions', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 
@@ -166,6 +169,7 @@ describe('requestTrackingPermissions', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 });
@@ -209,6 +213,7 @@ describe('requestMediaLibraryPermission', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 });
@@ -252,6 +257,7 @@ describe('requestCameraPermission', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 });
@@ -295,6 +301,7 @@ describe('requestNotificationPermission', () => {
       expect.arrayContaining([
         expect.objectContaining({ text: 'Einstellungen öffnen' }),
       ]),
+      expect.anything(),
     );
   });
 });

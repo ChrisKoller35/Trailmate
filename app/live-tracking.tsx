@@ -6,12 +6,12 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { showErrorToast, showInfoToast } from '../lib/toast';
+import { confirmAction } from '../lib/dialog';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { useLiveTracking, useStartLiveTracking, useStopLiveTracking } from '../hooks/useLiveTracking';
@@ -94,16 +94,16 @@ export default function LiveTrackingScreen() {
     });
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
     if (!activeSession) return;
-    Alert.alert('Tracking beenden', 'Möchtest du das Live-Tracking wirklich beenden?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Beenden',
-        style: 'destructive',
-        onPress: () => stopTracking.mutate(activeSession.id),
-      },
-    ]);
+    const ok = await confirmAction({
+      title: 'Tracking beenden',
+      message: 'Möchtest du das Live-Tracking wirklich beenden?',
+      confirmText: 'Beenden',
+      destructive: true,
+    });
+    if (!ok) return;
+    stopTracking.mutate(activeSession.id);
   };
 
   const handleCopyLink = async () => {

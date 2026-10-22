@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Alert,
   Share,
   Platform,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, SAC_SCALES } from '../constants';
 import { supabase } from '../lib/supabase';
+import { showErrorToast, showInfoToast } from '../lib/toast';
 import { DEMO_ROUTES } from '../__fixtures__/demoData';
 import { useRouteBookmarks } from '../hooks/useRouteBookmarks';
 import { useAuthStore } from '../stores/authStore';
@@ -90,7 +90,7 @@ export default function RouteDetailScreen() {
 
   const handleExportGPX = async () => {
     if (!isPremium) {
-      Alert.alert('Premium-Funktion', 'GPX-Export ist nur für Premium-Nutzer verfügbar.');
+      showInfoToast('GPX-Export ist nur für Premium-Nutzer verfügbar.');
       return;
     }
     if (!route) return;
@@ -105,7 +105,7 @@ export default function RouteDetailScreen() {
         );
       }
     } catch {
-      Alert.alert('Fehler', 'GPX-Export fehlgeschlagen.');
+      showErrorToast('GPX-Export fehlgeschlagen.');
     }
   };
 

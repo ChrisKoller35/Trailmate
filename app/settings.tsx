@@ -1,8 +1,9 @@
-import { View, Text, Pressable, SafeAreaView, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, SafeAreaView, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Colors } from '../constants';
+import { confirmAction } from '../lib/dialog';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 
@@ -14,18 +15,16 @@ export default function SettingsScreen() {
   const email = useAuthStore((s) => s.session?.user?.email);
   const clear = useAuthStore((s) => s.clear);
 
-  const handleSignOut = () => {
-    Alert.alert('Abmelden', 'Möchtest du dich wirklich abmelden?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      {
-        text: 'Abmelden',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          clear();
-        },
-      },
-    ]);
+  const handleSignOut = async () => {
+    const ok = await confirmAction({
+      title: 'Abmelden',
+      message: 'Möchtest du dich wirklich abmelden?',
+      confirmText: 'Abmelden',
+      destructive: true,
+    });
+    if (!ok) return;
+    await supabase.auth.signOut();
+    clear();
   };
 
   return (

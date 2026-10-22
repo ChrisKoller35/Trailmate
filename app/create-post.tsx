@@ -8,7 +8,6 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
@@ -33,6 +32,7 @@ import { useCreatePost } from '../hooks/useCreatePost';
 import ImageCropModal from '../components/ImageCropModal';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
+import { showErrorToast } from '../lib/toast';
 import type { Route } from '../types';
 
 export default function CreatePostScreen() {
@@ -96,7 +96,7 @@ export default function CreatePostScreen() {
     if (assets) {
       const total = mediaAssets.length + assets.length;
       if (total > APP_CONFIG.maxMediaPerPost) {
-        Alert.alert('Zu viele Medien', `Maximal ${APP_CONFIG.maxMediaPerPost} Dateien pro Post erlaubt.`);
+        showErrorToast(`Maximal ${APP_CONFIG.maxMediaPerPost} Dateien pro Post erlaubt.`);
         return;
       }
       setMediaAssets((prev) => [...prev, ...assets]);
@@ -133,7 +133,7 @@ export default function CreatePostScreen() {
         setLocationName('Standort hinzugefügt');
       }
     } catch {
-      Alert.alert('Fehler', 'Standort konnte nicht ermittelt werden.');
+      showErrorToast('Standort konnte nicht ermittelt werden.');
     } finally {
       setIsLoadingLocation(false);
     }
@@ -152,7 +152,7 @@ export default function CreatePostScreen() {
         else router.replace('/(tabs)');
       }
     } catch (err: any) {
-      Alert.alert('Fehler', err?.message ?? 'Beitrag konnte nicht erstellt werden.');
+      showErrorToast(err?.message ?? 'Beitrag konnte nicht erstellt werden.');
     }
   };
 

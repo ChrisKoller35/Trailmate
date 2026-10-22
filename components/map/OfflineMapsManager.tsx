@@ -5,12 +5,12 @@ import {
   StyleSheet,
   Pressable,
   FlatList,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
+import { confirmAction } from '../../lib/dialog';
 import { useAuthStore } from '../../stores/authStore';
 import { useOfflineMaps, type OfflineRegion } from '../../hooks/useOfflineMaps';
 
@@ -42,26 +42,23 @@ export function OfflineMapsManager() {
     );
   }
 
-  const handleDownload = (region: OfflineRegion) => {
-    Alert.alert(
-      'Region herunterladen',
-      `Möchtest du "${region.name}" (~${region.estimatedSizeMB} MB) herunterladen?`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Herunterladen', onPress: () => downloadRegion(region.id) },
-      ],
-    );
+  const handleDownload = async (region: OfflineRegion) => {
+    const ok = await confirmAction({
+      title: 'Region herunterladen',
+      message: `Möchtest du "${region.name}" (~${region.estimatedSizeMB} MB) herunterladen?`,
+      confirmText: 'Herunterladen',
+    });
+    if (ok) downloadRegion(region.id);
   };
 
-  const handleDelete = (region: OfflineRegion) => {
-    Alert.alert(
-      'Region löschen',
-      `Möchtest du "${region.name}" wirklich löschen?`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Löschen', style: 'destructive', onPress: () => deleteRegion(region.id) },
-      ],
-    );
+  const handleDelete = async (region: OfflineRegion) => {
+    const ok = await confirmAction({
+      title: 'Region löschen',
+      message: `Möchtest du "${region.name}" wirklich löschen?`,
+      confirmText: 'Löschen',
+      destructive: true,
+    });
+    if (ok) deleteRegion(region.id);
   };
 
   const renderRegion = ({ item }: { item: OfflineRegion }) => {

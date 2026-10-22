@@ -6,12 +6,12 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { showErrorToast } from '../lib/toast';
+import { showErrorToast, showInfoToast, showSuccessToast } from '../lib/toast';
+import { confirmAction } from '../lib/dialog';
 import { Ionicons } from '@expo/vector-icons';
 import {
   MapView,
@@ -143,26 +143,20 @@ export default function TourSummaryScreen() {
         await updateChallengeProgress(userId, currentStats);
 
         if (newBadges.length > 0) {
-          Alert.alert(
-            '🏆 Neues Abzeichen!',
-            `Du hast ${newBadges.length} neue${newBadges.length > 1 ? ' Abzeichen' : 's Abzeichen'} verdient!`,
-            [{ text: 'Super!', onPress: () => { reset(); router.replace('/(tabs)/record'); } }],
+          showSuccessToast(
+            `🏆 Tour gespeichert! Du hast ${newBadges.length} neue${newBadges.length > 1 ? ' Abzeichen' : 's Abzeichen'} verdient!`,
           );
+          reset();
+          router.replace('/(tabs)/record');
           return;
         }
       } catch {
         // Badge check failed silently - tour is still saved
       }
 
-      Alert.alert('Gespeichert!', 'Deine Tour wurde erfolgreich gespeichert.', [
-        {
-          text: 'OK',
-          onPress: () => {
-            reset();
-            router.replace('/(tabs)/record');
-          },
-        },
-      ]);
+      showSuccessToast('Deine Tour wurde erfolgreich gespeichert.');
+      reset();
+      router.replace('/(tabs)/record');
     } finally {
       setIsSaving(false);
     }
@@ -170,10 +164,7 @@ export default function TourSummaryScreen() {
 
   const handleExportGPX = useCallback(async () => {
     if (!isPremium) {
-      Alert.alert(
-        'Premium-Feature',
-        'Der GPX-Export ist nur für Premium-Mitglieder verfügbar.',
-      );
+      showInfoToast('Der GPX-Export ist nur für Premium-Mitglieder verfügbar.');
       return;
     }
     if (trackPoints.length === 0) {
@@ -202,26 +193,20 @@ export default function TourSummaryScreen() {
     }
   }, [trackPoints, title]);
 
-  const handleDiscard = useCallback(() => {
-    Alert.alert(
-      'Tour verwerfen?',
-      'Deine aufgezeichneten Daten werden unwiderruflich gelöscht.',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Verwerfen',
-          style: 'destructive',
-          onPress: () => {
-            reset();
-            router.replace('/(tabs)/record');
-          },
-        },
-      ],
-    );
+  const handleDiscard = useCallback(async () => {
+    const ok = await confirmAction({
+      title: 'Tour verwerfen?',
+      message: 'Deine aufgezeichneten Daten werden unwiderruflich gelöscht.',
+      confirmText: 'Verwerfen',
+      destructive: true,
+    });
+    if (!ok) return;
+    reset();
+    router.replace('/(tabs)/record');
   }, [reset, router]);
 
   const handleShareFeed = useCallback(() => {
-    Alert.alert('Bald verfügbar', 'Das Teilen im Feed wird in einem zukünftigen Update verfügbar sein.');
+    showInfoToast('Das Teilen im Feed wird in einem zukünftigen Update verfügbar sein.');
   }, []);
 
   const stats = [
