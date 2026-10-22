@@ -149,8 +149,12 @@ export default function GroupDetailScreen() {
       destructive: true,
     });
     if (!ok || !id) return;
-    await deleteGroup(id);
-    router.back();
+    try {
+      await deleteGroup(id);
+      router.back();
+    } catch (err) {
+      showErrorToast(err instanceof Error ? err.message : 'Gruppe konnte nicht gelöscht werden.');
+    }
   };
 
   const handleManageMember = async (userId: string) => {

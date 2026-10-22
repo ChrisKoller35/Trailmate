@@ -135,6 +135,22 @@ export default function CommunityDetailScreen() {
     router.back();
   };
 
+  const handleDelete = async () => {
+    const ok = await confirmAction({
+      title: 'Community löschen',
+      message: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+      confirmText: 'Löschen',
+      destructive: true,
+    });
+    if (!ok || !id) return;
+    try {
+      await manageCommunity.deleteCommunity(id);
+      router.back();
+    } catch (err) {
+      showErrorToast(err instanceof Error ? err.message : 'Community konnte nicht gelöscht werden.');
+    }
+  };
+
   const renderMember = ({ item }: { item: CommunityMember & { user: any } }) => (
     <View style={styles.memberRow}>
       <Avatar uri={item.user?.avatar_url ?? null} size={40} />
@@ -189,7 +205,13 @@ export default function CommunityDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {community.name}
         </Text>
-        <View style={{ width: 24 }} />
+        {isAdmin ? (
+          <Pressable onPress={handleDelete} hitSlop={8}>
+            <Ionicons name="trash-outline" size={22} color={Colors.error} />
+          </Pressable>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
       {/* Community Info */}

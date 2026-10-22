@@ -326,9 +326,14 @@ export function useCommunities() {
 
       deleteCommunity: async (communityId: string) => {
         if (!userId) return;
-        await supabase.from('community_members').delete().eq('community_id', communityId);
-        await supabase.from('community_join_requests').delete().eq('community_id', communityId);
-        await supabase.from('communities').delete().eq('id', communityId);
+        // Rest per ON DELETE CASCADE (Migration 020); ohne Recht löscht RLS still nichts
+        const { data, error } = await supabase
+          .from('communities')
+          .delete()
+          .eq('id', communityId)
+          .select('id');
+        if (error) throw new Error(error.message);
+        if (!data?.length) throw new Error('Community konnte nicht gelöscht werden.');
         queryClient.invalidateQueries({ queryKey: queryKeys.communities.mine(userId!) });
         queryClient.invalidateQueries({ queryKey: queryKeys.communities.suggested(userId!) });
       },
