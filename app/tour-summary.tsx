@@ -30,13 +30,9 @@ import { formatDuration, formatDistance } from '../lib/trackingCalculations';
 import { exportRecordingAsGPX } from '../lib/gpxExport';
 import { ElevationProfile } from '../components/map/ElevationProfile';
 import { checkAndAwardBadges, updateChallengeProgress } from '../lib/badgeEngine';
+import { formatSwissNumber } from '../lib/tourShareText';
 
 import { SWISSTOPO_STYLE_JSON } from '../lib/mapStyle';
-
-function formatSwissNumber(n: number): string {
-  const str = Math.round(n).toString();
-  return str.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019');
-}
 
 function computeBounds(points: { longitude: number; latitude: number }[]) {
   if (points.length === 0) return null;
