@@ -43,6 +43,7 @@ export const APP_CONFIG = {
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
   retryCount: 2,
+  webBaseUrl: 'https://trailmate.ch',
 } as const;
 
 export const REGIONS = [

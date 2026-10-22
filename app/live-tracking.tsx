@@ -13,7 +13,7 @@ import { Stack, useRouter } from 'expo-router';
 import { showErrorToast, showInfoToast } from '../lib/toast';
 import { confirmAction } from '../lib/dialog';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants';
+import { APP_CONFIG, Colors } from '../constants';
 import { useLiveTracking, useStartLiveTracking, useStopLiveTracking } from '../hooks/useLiveTracking';
 import { usePremium } from '../hooks/usePremium';
 
@@ -29,6 +29,8 @@ const DURATION_OPTIONS = [
   { label: '8 h', value: 8 },
   { label: '12 h', value: 12 },
 ] as const;
+
+const trackingLink = (token: string) => `${APP_CONFIG.webBaseUrl}/track/${token}`;
 
 const INTERVAL_OPTIONS = [
   { label: '5 min', value: 5 },
@@ -108,8 +110,7 @@ export default function LiveTrackingScreen() {
 
   const handleCopyLink = async () => {
     if (!activeSession) return;
-    const link = `https://trailmate.ch/track/${activeSession.share_token}`;
-    showInfoToast(link);
+    showInfoToast(trackingLink(activeSession.share_token));
   };
 
   if (isLoading) {
@@ -157,7 +158,7 @@ export default function LiveTrackingScreen() {
               <Text style={styles.sectionTitle}>Teilen-Link</Text>
               <View style={styles.linkRow}>
                 <Text style={styles.linkText} numberOfLines={1}>
-                  https://trailmate.ch/track/{activeSession.share_token}
+                  {trackingLink(activeSession.share_token)}
                 </Text>
                 <Pressable style={styles.copyButton} onPress={handleCopyLink}>
                   <Ionicons name="copy-outline" size={20} color={Colors.textOnPrimary} />
