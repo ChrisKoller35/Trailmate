@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
@@ -64,13 +64,19 @@ export function useGroupPosts(target: GroupPostsTarget) {
     [query.data],
   );
 
+  const { hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = query;
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const refresh = useCallback(() => { refetch(); }, [refetch]);
+
   return {
     posts,
     isLoading: query.isLoading,
-    isRefreshing: query.isRefetching,
+    isRefreshing: query.isRefetching && !isFetchingNextPage,
     isError: query.isError,
-    hasMore: query.hasNextPage ?? false,
-    loadMore: () => { if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage(); },
-    refresh: () => query.refetch(),
+    hasMore: hasNextPage ?? false,
+    loadMore,
+    refresh,
   };
 }
