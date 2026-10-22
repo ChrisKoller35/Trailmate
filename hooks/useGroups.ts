@@ -354,31 +354,36 @@ export function useGroups() {
   // ─── Join requests (admin/mod) ───────────────────────────
   const getJoinRequests = useCallback(
     async (groupId: string): Promise<GroupJoinRequest[]> => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('group_join_requests')
         .select('*, user:users(username, display_name, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'pending');
 
+      if (error) throw new Error(error.message);
       return (data ?? []) as GroupJoinRequest[];
     },
     [],
   );
 
+  // Erst Mitglied eintragen, dann Anfrage schliessen: scheitert das Eintragen,
+  // bleibt die Anfrage offen. Bereits Mitglied (23505) gilt als Erfolg.
   const approveJoinRequest = useCallback(
     async (groupId: string, targetUserId: string) => {
       if (!userId) return;
 
-      await supabase
+      const { error: insertError } = await supabase
+        .from('group_members')
+        .insert({ group_id: groupId, user_id: targetUserId, role: 'member' });
+      if (insertError && insertError.code !== '23505') throw new Error(insertError.message);
+
+      const { error: updateError } = await supabase
         .from('group_join_requests')
         .update({ status: 'accepted' })
         .eq('group_id', groupId)
         .eq('user_id', targetUserId)
         .eq('status', 'pending');
-
-      await supabase
-        .from('group_members')
-        .insert({ group_id: groupId, user_id: targetUserId, role: 'member' });
+      if (updateError) throw new Error(updateError.message);
 
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.mine(userId) });
@@ -390,12 +395,13 @@ export function useGroups() {
     async (groupId: string, targetUserId: string) => {
       if (!userId) return;
 
-      await supabase
+      const { error } = await supabase
         .from('group_join_requests')
         .update({ status: 'rejected' })
         .eq('group_id', groupId)
         .eq('user_id', targetUserId)
         .eq('status', 'pending');
+      if (error) throw new Error(error.message);
 
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) });
     },
