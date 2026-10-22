@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, type ViewStyle } from 'react-native';
 import { Colors } from '../../constants';
 
@@ -27,6 +27,9 @@ interface TrailMapProps {
   startPoint?: [number, number] | null;
   endPoint?: [number, number] | null;
   showHikingTrails?: boolean;
+  /** Ort, zu dem die Karte fliegt und einen Such-Marker zeigt ([Länge, Breite]) */
+  focusPoint?: [number, number] | null;
+  focusZoom?: number;
   style?: ViewStyle;
 }
 
@@ -37,11 +40,24 @@ export function TrailMap({
   startPoint,
   endPoint,
   showHikingTrails = true,
+  focusPoint,
+  focusZoom = 13,
   style,
 }: TrailMapProps) {
   const mapRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  // Zum gesuchten Ort fliegen
+  useEffect(() => {
+    if (!focusPoint || Platform.OS === 'web') return;
+    cameraRef.current?.setCamera({
+      centerCoordinate: focusPoint,
+      zoomLevel: focusZoom,
+      animationMode: 'flyTo',
+      animationDuration: 1200,
+    });
+  }, [focusPoint, focusZoom]);
 
   const handlePress = useCallback(
     (event: any) => {
@@ -61,6 +77,8 @@ export function TrailMap({
           startPoint={startPoint}
           endPoint={endPoint}
           showHikingTrails={showHikingTrails}
+          focusPoint={focusPoint}
+          focusZoom={focusZoom}
           style={style}
         >
           {children}
@@ -160,6 +178,12 @@ export function TrailMap({
         </ShapeSource>
       )}
 
+      {focusPoint && (
+        <PointAnnotation id="search-point" coordinate={focusPoint}>
+          <View style={[styles.marker, styles.searchMarker]} />
+        </PointAnnotation>
+      )}
+
       {startPoint && (
         <PointAnnotation id="start-point" coordinate={startPoint}>
           <View style={[styles.marker, styles.startMarker]}>
@@ -223,6 +247,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3,
     elevation: 4,
+  },
+  searchMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
+    backgroundColor: Colors.primary,
   },
   startMarker: {
     backgroundColor: Colors.success,
