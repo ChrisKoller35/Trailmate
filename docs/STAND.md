@@ -41,3 +41,5 @@ Alle drei gehören zu Meilenstein M1 „Grün und sicher“ ([`docs/ROADMAP.md`]
 *Nachtrag:* Migration 014 (Test `supabase/tests/014_block_filter_suchpfad.test.sql`) behebt Ist-Soll 01, Sicherheitsauffälligkeiten 1 und 3: Block-Filter gilt wieder für Routen, Abzeichen und Challenge-Teilnahmen; alle SECURITY-DEFINER-Funktionen haben einen festen `search_path`.
 
 *Nachtrag:* Migration 015 (Test `supabase/tests/015_limits.test.sql`) behebt Ist-Soll 06, Sicherheitsauffälligkeit 3: höchstens 5 Beiträge pro Stunde, kein gleicher Text innerhalb 24 h und höchstens 50 Direktnachrichten pro 24 h, serverseitig per Trigger; `created_at` setzt der Server.
+
+*Nachtrag:* Migration 017 (Test `supabase/tests/017_beitritt_nur_durch_admins.test.sql`) ergänzt 012: Mitglied wird man nur noch als Ersteller, durch Admin/Mod oder per Self-Join in eine öffentliche Gruppe. Wer austritt oder entfernt wird, verliert seine angenommene Anfrage und kann neu anfragen, aber nicht selbst wieder eintreten.
