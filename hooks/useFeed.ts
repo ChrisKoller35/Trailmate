@@ -15,7 +15,7 @@ type FeedPage = {
 };
 
 // ─── DB row types (Supabase returns untyped data) ─────────
-interface PostRow {
+export interface PostRow {
   id: string;
   user_id: string;
   content: string | null;
@@ -33,7 +33,7 @@ interface PostRow {
   route?: FeedPost['route'];
 }
 
-interface UserRow {
+export interface UserRow {
   id: string;
   username: string;
   display_name: string | null;
@@ -254,7 +254,7 @@ export function useFeed() {
 
 // ─── Helpers ───────────────────────────────────────────────
 
-function mapPosts(data: PostRow[] | null): FeedPost[] {
+export function mapPosts(data: PostRow[] | null): FeedPost[] {
   if (!data) return [];
   return data
     .filter((row) => !row.is_hidden)
