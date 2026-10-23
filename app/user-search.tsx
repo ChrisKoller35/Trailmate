@@ -4,7 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { Colors } from '../constants';
 import { showErrorToast } from '../lib/toast';
-import { useProfileSearch, MIN_SEARCH_LENGTH, type ProfileCard } from '../hooks/useProfileCards';
+import {
+  useProfileSearch,
+  normalizeSearchTerm,
+  MIN_SEARCH_LENGTH,
+  type ProfileCard,
+} from '../hooks/useProfileCards';
 import UserListItem from '../components/social/UserListItem';
 
 const DEBOUNCE_MS = 300;
@@ -20,7 +25,7 @@ export default function UserSearchScreen() {
   }, [input]);
 
   const search = useProfileSearch(query);
-  const tooShort = query.trim().length < MIN_SEARCH_LENGTH;
+  const tooShort = normalizeSearchTerm(query).length < MIN_SEARCH_LENGTH;
 
   useEffect(() => {
     if (search.isError) showErrorToast('Die Suche ist fehlgeschlagen.');

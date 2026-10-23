@@ -19,6 +19,11 @@ export interface ProfileCard {
 /** Mindestlänge der Suche nach trim, wie in search_profiles. */
 export const MIN_SEARCH_LENGTH = 2;
 
+/** Suchbegriff ohne Leerzeichen am Rand und ohne führendes @ («@anna» → «anna»). */
+export function normalizeSearchTerm(query: string): string {
+  return query.trim().replace(/^@+/, '').trim();
+}
+
 /** Lädt Profilkarten mit einem einzigen RPC-Aufruf. Leere Liste: kein Aufruf. */
 export async function fetchProfileCards(ids: (string | null | undefined)[]): Promise<ProfileCard[]> {
   const unique = [...new Set(ids.filter((id): id is string => !!id))];
@@ -31,7 +36,7 @@ export async function fetchProfileCards(ids: (string | null | undefined)[]): Pro
 
 /** Sucht Personen nach Username oder Anzeigename. Unter 2 Zeichen: kein Aufruf. */
 export async function searchProfiles(query: string): Promise<ProfileCard[]> {
-  const term = query.trim();
+  const term = normalizeSearchTerm(query);
   if (term.length < MIN_SEARCH_LENGTH) return [];
 
   const { data, error } = await supabase.rpc('search_profiles', { p_query: term });
@@ -41,7 +46,7 @@ export async function searchProfiles(query: string): Promise<ProfileCard[]> {
 
 export function useProfileSearch(query: string) {
   const userId = useAuthStore((s) => s.user?.id);
-  const term = query.trim();
+  const term = normalizeSearchTerm(query);
 
   return useQuery({
     queryKey: ['profiles', 'search', userId ?? '', term.toLowerCase()] as const,
