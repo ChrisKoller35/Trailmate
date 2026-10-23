@@ -101,12 +101,21 @@ export default function FeedScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>TrailMate</Text>
-        <Pressable
-          style={styles.createButton}
-          onPress={() => router.push('/create-post')}
-        >
-          <Ionicons name="add-circle" size={30} color={Colors.primary} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.createButton}
+            onPress={() => router.push('/user-search')}
+            accessibilityLabel="Personen suchen"
+          >
+            <Ionicons name="search" size={26} color={Colors.primary} />
+          </Pressable>
+          <Pressable
+            style={styles.createButton}
+            onPress={() => router.push('/create-post')}
+          >
+            <Ionicons name="add-circle" size={30} color={Colors.primary} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Tabs */}
@@ -229,6 +238,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: Colors.primary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   createButton: {
     padding: 4,

@@ -15,6 +15,7 @@ import { confirmAction } from '../lib/dialog';
 import { showErrorToast, showSuccessToast } from '../lib/toast';
 import { useGroups } from '../hooks/useGroups';
 import { useCommunities } from '../hooks/useCommunities';
+import { fetchProfileCards } from '../hooks/useProfileCards';
 import Avatar from '../components/ui/Avatar';
 
 interface RequestUser {
@@ -45,7 +46,24 @@ export default function JoinRequestsScreen() {
     setLoading(true);
     setLoadError(false);
     try {
-      setRequests((await getJoinRequests(id)) as JoinRequestRow[]);
+      const rows = (await getJoinRequests(id)) as JoinRequestRow[];
+      // Private Profile blendet RLS aus: fehlende Namen per Profilkarte nachladen.
+      const missing = rows.filter((r) => !r.user?.username || !r.user?.avatar_url).map((r) => r.user_id);
+      const cards = new Map((await fetchProfileCards(missing).catch(() => [])).map((c) => [c.id, c]));
+      setRequests(
+        rows.map((r) => {
+          const card = cards.get(r.user_id);
+          if (!card) return r;
+          return {
+            ...r,
+            user: {
+              username: r.user?.username || card.username,
+              display_name: r.user?.display_name || card.display_name,
+              avatar_url: r.user?.avatar_url || card.avatar_url,
+            },
+          };
+        }),
+      );
     } catch {
       setLoadError(true);
     }
