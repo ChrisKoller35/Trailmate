@@ -5,7 +5,12 @@
 // React Query is mocked so the hook can be called directly without
 // renderHook, and the Supabase client records every RPC call.
 
-import { fetchProfileCards, searchProfiles, useProfileSearch } from '../hooks/useProfileCards';
+import {
+  fetchProfileCards,
+  normalizeSearchTerm,
+  searchProfiles,
+  useProfileSearch,
+} from '../hooks/useProfileCards';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +106,13 @@ describe('searchProfiles', () => {
   it('makes no call below 2 characters', async () => {
     await expect(searchProfiles('')).resolves.toEqual([]);
     await expect(searchProfiles(' a  ')).resolves.toEqual([]);
+    await expect(searchProfiles('@a')).resolves.toEqual([]);
     expect(mockRpcCalls).toEqual([]);
+  });
+
+  it('drops a leading @ like in the placeholder «@username»', async () => {
+    await searchProfiles(' @anna ');
+    expect(mockRpcCalls).toEqual([{ fn: 'search_profiles', args: { p_query: 'anna' } }]);
   });
 
   it('reports an RPC error', async () => {
@@ -110,6 +121,15 @@ describe('searchProfiles', () => {
     await expect(searchProfiles('anna')).rejects.toEqual(
       expect.objectContaining({ message: 'kaputt' }),
     );
+  });
+});
+
+describe('normalizeSearchTerm', () => {
+  it('trims and removes leading @ only', () => {
+    expect(normalizeSearchTerm('  @@anna ')).toBe('anna');
+    expect(normalizeSearchTerm('@ anna')).toBe('anna');
+    expect(normalizeSearchTerm('an@na')).toBe('an@na');
+    expect(normalizeSearchTerm('@')).toBe('');
   });
 });
 
@@ -127,5 +147,14 @@ describe('useProfileSearch', () => {
 
     await mockLastQuery?.queryFn();
     expect(mockRpcCalls).toEqual([{ fn: 'search_profiles', args: { p_query: 'An' } }]);
+  });
+
+  it('uses the term without @ for key and search', () => {
+    useProfileSearch('@An');
+    expect(mockLastQuery?.enabled).toBe(true);
+    expect(mockLastQuery?.queryKey).toEqual(['profiles', 'search', 'me', 'an']);
+
+    useProfileSearch('@a');
+    expect(mockLastQuery?.enabled).toBe(false);
   });
 });
