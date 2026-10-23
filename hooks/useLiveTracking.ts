@@ -3,6 +3,17 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import type { LiveTrackingSession, GeoPoint } from '../types';
 
+/** Antwort von get_live_tracking_by_token (Migration 021); null = Link nicht aktiv. */
+export interface SharedLiveTracking {
+  display_name: string;
+  avatar_url: string | null;
+  last_location: { longitude: number; latitude: number } | null;
+  last_updated_at: string | null;
+  expected_return: string | null;
+  is_active: boolean;
+  started_at: string;
+}
+
 export function useLiveTracking() {
   const userId = useAuthStore((s) => s.user?.id);
 
@@ -33,16 +44,11 @@ export function useStartLiveTracking() {
       expected_return: string | null;
       update_interval_minutes: number;
     }) => {
-      const share_token = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      });
-
+      // share_token setzt der Server (Migration 021) und liefert es über .select() zurück.
       const { data, error } = await supabase
         .from('live_tracking_sessions')
         .insert({
           user_id: userId!,
-          share_token,
           trusted_contacts: params.trusted_contacts,
           expected_return: params.expected_return,
           update_interval_minutes: params.update_interval_minutes,
@@ -114,16 +120,7 @@ export function useLiveTrackingByToken(token: string | undefined) {
       });
 
       if (error) throw error;
-      return data as {
-        id: string;
-        user_id: string;
-        display_name: string;
-        avatar_url: string | null;
-        last_location: { longitude: number; latitude: number } | null;
-        last_updated_at: string | null;
-        is_active: boolean;
-        started_at: string;
-      } | null;
+      return (data as SharedLiveTracking | null) ?? null;
     },
   });
 }

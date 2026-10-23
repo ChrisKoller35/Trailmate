@@ -22,6 +22,7 @@ import { TrailMap } from '../../components/map/TrailMap';
 import { Colors } from '../../constants';
 import { useRecordingStore } from '../../stores/recordingStore';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useLiveLocationSync } from '../../hooks/useLiveLocationSync';
 import {
   startTracking,
   stopTracking,
@@ -63,6 +64,7 @@ export default function RecordScreen() {
   const pauseRecording = useRecordingStore((s) => s.pauseRecording);
   const resumeRecording = useRecordingStore((s) => s.resumeRecording);
   const stopRecordingAction = useRecordingStore((s) => s.stopRecording);
+  const { isSharing: isLiveSharing } = useLiveLocationSync();
 
   // Request permissions on mount + check for crash recovery
   useEffect(() => {
@@ -266,6 +268,12 @@ export default function RecordScreen() {
             </Text>
             <Text style={styles.recTime}>{formatElapsed(elapsed)}</Text>
           </View>
+          {isLiveSharing && (
+            <View style={styles.liveBadge}>
+              <Ionicons name="radio" size={14} color={Colors.textOnPrimary} />
+              <Text style={styles.liveText}>Live geteilt</Text>
+            </View>
+          )}
         </SafeAreaView>
       )}
 
@@ -403,6 +411,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 8,
     marginTop: Platform.OS === 'ios' ? 8 : 0,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginTop: 6,
+  },
+  liveText: {
+    color: Colors.textOnPrimary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   recDot: {
     width: 10,
