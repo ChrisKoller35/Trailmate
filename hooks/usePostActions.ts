@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { queryKeys } from '../lib/queryKeys';
+import { showErrorToast } from '../lib/toast';
 import type { Comment } from '../types';
 
 // Postgres unique_violation: dieselbe Person meldet dasselbe Ziel erneut (Migration 013)
@@ -166,7 +167,19 @@ export function usePostActions() {
 
   // ─── Post Mutations ───────────────────────────────────────
   const deletePostMutation = useMutation({
-    mutationFn: async (postId: string) => {
+    mutationFn: async ({ postId, asModerator }: { postId: string; asModerator: boolean }) => {
+      if (asModerator) {
+        // Fremder Gruppen-/Community-Beitrag: die Datenbank prüft die Rolle
+        // (posts_delete, Migration 020). Ohne Recht löscht RLS still nichts.
+        const { data, error } = await supabase
+          .from('posts')
+          .delete()
+          .eq('id', postId)
+          .select('id');
+        if (error) throw error;
+        if (!data?.length) throw new Error('Beitrag konnte nicht gelöscht werden.');
+        return;
+      }
       const { error } = await supabase
         .from('posts')
         .delete()
@@ -302,7 +315,20 @@ export function usePostActions() {
 
   const deletePost = async (postId: string) => {
     if (!userId) return;
-    await deletePostMutation.mutateAsync(postId);
+    await deletePostMutation.mutateAsync({ postId, asModerator: false });
+  };
+
+  /** Admin/Moderator löscht einen fremden Beitrag; Fehler als Toast. */
+  const moderatePost = async (postId: string): Promise<boolean> => {
+    if (!userId) return false;
+    try {
+      await deletePostMutation.mutateAsync({ postId, asModerator: true });
+      return true;
+    } catch (err) {
+      const message = (err as { message?: unknown } | null)?.message;
+      showErrorToast(typeof message === 'string' && message ? message : 'Beitrag konnte nicht gelöscht werden.');
+      return false;
+    }
   };
 
   return {
@@ -318,5 +344,6 @@ export function usePostActions() {
     reportPost,
     reportComment,
     deletePost,
+    moderatePost,
   };
 }

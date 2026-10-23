@@ -15,7 +15,7 @@ type FeedPage = {
 };
 
 // ─── DB row types (Supabase returns untyped data) ─────────
-interface PostRow {
+export interface PostRow {
   id: string;
   user_id: string;
   content: string | null;
@@ -33,7 +33,7 @@ interface PostRow {
   route?: FeedPost['route'];
 }
 
-interface UserRow {
+export interface UserRow {
   id: string;
   username: string;
   display_name: string | null;
@@ -80,6 +80,9 @@ export function useFeed() {
         .from('posts')
         .select('*')
         .in('user_id', allIds)
+        // Gruppen- und Community-Beiträge stehen in ihren Detail-Screens
+        .is('group_id', null)
+        .is('community_id', null)
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
@@ -254,7 +257,7 @@ export function useFeed() {
 
 // ─── Helpers ───────────────────────────────────────────────
 
-function mapPosts(data: PostRow[] | null): FeedPost[] {
+export function mapPosts(data: PostRow[] | null): FeedPost[] {
   if (!data) return [];
   return data
     .filter((row) => !row.is_hidden)

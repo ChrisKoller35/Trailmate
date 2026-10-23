@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
   Share,
   StyleSheet,
 } from 'react-native';
@@ -15,10 +16,16 @@ import { Colors } from '../constants';
 import { chooseAction, confirmAction } from '../lib/dialog';
 import { useGroups } from '../hooks/useGroups';
 import { useEvents } from '../hooks/useEvents';
+import { useGroupPosts } from '../hooks/useGroupPosts';
+import { usePostActions } from '../hooks/usePostActions';
 import { useAuthStore } from '../stores/authStore';
+import { showErrorToast } from '../lib/toast';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
-import type { Group, GroupMember, GroupEvent, GroupRole, EventResponse } from '../types';
+import PostCard from '../components/feed/PostCard';
+import CommentSection from '../components/feed/CommentSection';
+import ReportModal from '../components/feed/ReportModal';
+import type { Group, GroupMember, GroupEvent, GroupRole, EventResponse, FeedPost } from '../types';
 
 type Tab = 'posts' | 'events' | 'members';
 
@@ -51,6 +58,40 @@ export default function GroupDetailScreen() {
   const isMember = myRole !== null;
   const isAdmin = myRole === 'admin';
   const isMod = myRole === 'moderator';
+
+  const {
+    posts,
+    isLoading: postsLoading,
+    isRefreshing: postsRefreshing,
+    isError: postsError,
+    loadMore: loadMorePosts,
+    refresh: refreshPosts,
+  } = useGroupPosts({ type: 'group', id: id ?? '' });
+  const { isLiked, isBookmarked, toggleLike, toggleBookmark, reportPost, deletePost, moderatePost } =
+    usePostActions();
+  const [commentPostId, setCommentPostId] = useState<string | null>(null);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+
+  // Nach «Beitrag schreiben» zurück: Liste neu laden (der erste Fokus lädt ohnehin)
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusedOnce.current) refreshPosts();
+      focusedOnce.current = true;
+    }, [refreshPosts]),
+  );
+
+  const handleDeletePost = async (post: FeedPost) => {
+    if (post.user_id === currentUser?.id) {
+      try {
+        await deletePost(post.id);
+      } catch {
+        showErrorToast('Beitrag konnte nicht gelöscht werden.');
+      }
+    } else {
+      await moderatePost(post.id);
+    }
+  };
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -108,8 +149,12 @@ export default function GroupDetailScreen() {
       destructive: true,
     });
     if (!ok || !id) return;
-    await deleteGroup(id);
-    router.back();
+    try {
+      await deleteGroup(id);
+      router.back();
+    } catch (err) {
+      showErrorToast(err instanceof Error ? err.message : 'Gruppe konnte nicht gelöscht werden.');
+    }
   };
 
   const handleManageMember = async (userId: string) => {
@@ -339,10 +384,58 @@ export default function GroupDetailScreen() {
 
       {/* Tab Content */}
       {activeTab === 'posts' && (
-        <View style={styles.center}>
-          <Ionicons name="chatbubbles-outline" size={48} color={Colors.textLight} />
-          <Text style={styles.emptyText}>Noch keine Gruppen-Beiträge</Text>
-        </View>
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PostCard
+              post={item}
+              isLiked={isLiked(item.id)}
+              isBookmarked={isBookmarked(item.id)}
+              isOwnPost={item.user_id === currentUser?.id}
+              canModerate={isAdmin || isMod}
+              onLike={() => toggleLike(item.id)}
+              onBookmark={() => toggleBookmark(item.id)}
+              onComment={() => setCommentPostId(item.id)}
+              onReport={() => setReportPostId(item.id)}
+              onDelete={() => handleDeletePost(item)}
+            />
+          )}
+          onEndReached={loadMorePosts}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl refreshing={postsRefreshing} onRefresh={refreshPosts} tintColor={Colors.primary} />
+          }
+          ListHeaderComponent={
+            isMember ? (
+              <Pressable
+                style={styles.writeButton}
+                onPress={() => router.push(`/create-post?groupId=${id}`)}
+              >
+                <Ionicons name="create-outline" size={20} color={Colors.primary} />
+                <Text style={styles.actionButtonText}>Beitrag schreiben</Text>
+              </Pressable>
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.center}>
+              {postsLoading ? (
+                <ActivityIndicator size="large" color={Colors.primary} />
+              ) : postsError ? (
+                <>
+                  <Ionicons name="alert-circle-outline" size={48} color={Colors.textLight} />
+                  <Text style={styles.emptyText}>Beiträge konnten nicht geladen werden</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="chatbubbles-outline" size={48} color={Colors.textLight} />
+                  <Text style={styles.emptyText}>Noch keine Gruppen-Beiträge</Text>
+                </>
+              )}
+            </View>
+          }
+          contentContainerStyle={posts.length === 0 ? { flexGrow: 1 } : undefined}
+        />
       )}
 
       {activeTab === 'events' && (
@@ -373,6 +466,21 @@ export default function GroupDetailScreen() {
           }
         />
       )}
+
+      {commentPostId && (
+        <CommentSection
+          postId={commentPostId}
+          visible={!!commentPostId}
+          onClose={() => setCommentPostId(null)}
+        />
+      )}
+      <ReportModal
+        visible={!!reportPostId}
+        onClose={() => setReportPostId(null)}
+        onSubmit={async (reason, description) => {
+          if (reportPostId) return reportPost(reportPostId, reason, description);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -474,6 +582,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Colors.primary,
+  },
+  writeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    margin: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   tabBar: {
     flexDirection: 'row',

@@ -35,6 +35,8 @@ interface PostCardProps {
   onReport: () => void;
   onDelete?: () => void;
   isOwnPost?: boolean;
+  /** Admin/Moderator der Gruppe bzw. Community: darf fremde Beiträge löschen */
+  canModerate?: boolean;
   route?: {
     title: string | null;
     distance_m: number | null;
@@ -74,6 +76,7 @@ export default function PostCard({
   onReport,
   onDelete,
   isOwnPost,
+  canModerate,
   route,
 }: PostCardProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -142,18 +145,7 @@ export default function PostCard({
           {/* Transparent backdrop — tap anywhere outside to close */}
           <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)} />
           <View style={styles.menuDropdown}>
-            {isOwnPost ? (
-              <Pressable
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuOpen(false);
-                  setConfirmDelete(true);
-                }}
-              >
-                <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                <Text style={[styles.menuItemText, { color: Colors.error }]}>Löschen</Text>
-              </Pressable>
-            ) : (
+            {!isOwnPost && (
               <Pressable
                 style={styles.menuItem}
                 onPress={() => {
@@ -163,6 +155,18 @@ export default function PostCard({
               >
                 <Ionicons name="flag-outline" size={18} color={Colors.textSecondary} />
                 <Text style={styles.menuItemText}>Melden</Text>
+              </Pressable>
+            )}
+            {(isOwnPost || canModerate) && (
+              <Pressable
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  setConfirmDelete(true);
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                <Text style={[styles.menuItemText, { color: Colors.error }]}>Löschen</Text>
               </Pressable>
             )}
           </View>

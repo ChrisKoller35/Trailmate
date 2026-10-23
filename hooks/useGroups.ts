@@ -300,30 +300,15 @@ export function useGroups() {
     mutationFn: async (groupId: string) => {
       if (!userId) throw new Error('Not authenticated');
 
-      // Remove events and responses first
-      const { data: events } = await supabase
-        .from('group_events')
-        .select('id')
-        .eq('group_id', groupId);
-      if (events?.length) {
-        const eventIds = events.map((e: any) => e.id);
-        await supabase.from('event_responses').delete().in('event_id', eventIds);
-        await supabase.from('group_events').delete().eq('group_id', groupId);
-      }
-
-      // Remove group posts
-      await supabase.from('posts').delete().eq('group_id', groupId);
-
-      // Remove members and requests
-      await supabase.from('group_members').delete().eq('group_id', groupId);
-      await supabase.from('group_join_requests').delete().eq('group_id', groupId);
-
-      const { error } = await supabase.from('groups').delete().eq('id', groupId);
+      // Mitglieder, Anfragen, Events und Beiträge löscht die Datenbank per
+      // ON DELETE CASCADE mit (Migration 020). Ohne Recht löscht RLS still nichts.
+      const { data, error } = await supabase.from('groups').delete().eq('id', groupId).select('id');
 
       if (error) {
         console.error('Delete group failed:', error);
         throw error;
       }
+      if (!data?.length) throw new Error('Gruppe konnte nicht gelöscht werden.');
     },
     onMutate: async (groupId: string) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.groups.mine(userId!) });
