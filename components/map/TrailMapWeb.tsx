@@ -14,6 +14,9 @@ interface TrailMapWebProps {
   startPoint?: [number, number] | null;
   endPoint?: [number, number] | null;
   showHikingTrails?: boolean;
+  /** Ort, zu dem die Karte fliegt und einen Such-Marker zeigt ([Länge, Breite]) */
+  focusPoint?: [number, number] | null;
+  focusZoom?: number;
   style?: ViewStyle;
 }
 
@@ -38,12 +41,15 @@ export function TrailMapWeb({
   startPoint,
   endPoint,
   showHikingTrails = true,
+  focusPoint,
+  focusZoom = 13,
   style,
 }: TrailMapWebProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const startMarkerRef = useRef<maplibregl.Marker | null>(null);
   const endMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const searchMarkerRef = useRef<maplibregl.Marker | null>(null);
   const mapLoadedRef = useRef(false);
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
@@ -150,6 +156,24 @@ export function TrailMapWeb({
         .addTo(mapRef.current);
     }
   }, [endPoint]);
+
+  // Fly to searched place and show search marker
+  useEffect(() => {
+    searchMarkerRef.current?.remove();
+    searchMarkerRef.current = null;
+    const map = mapRef.current;
+    if (!focusPoint || !map) return;
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: 20px; height: 20px; border-radius: 10px;
+      background: ${Colors.primary}; border: 3px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    `;
+    searchMarkerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat(focusPoint)
+      .addTo(map);
+    map.flyTo({ center: focusPoint, zoom: focusZoom });
+  }, [focusPoint, focusZoom]);
 
   // Toggle hiking trails
   useEffect(() => {

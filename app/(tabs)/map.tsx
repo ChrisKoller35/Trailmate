@@ -15,6 +15,8 @@ import { TrailMap } from '../../components/map/TrailMap';
 import { RouteInfoPanel } from '../../components/map/RouteInfoPanel';
 import { RouteFilterSheet } from '../../components/map/RouteFilterSheet';
 import { ElevationProfile } from '../../components/map/ElevationProfile';
+import { PlaceSearchBar } from '../../components/map/PlaceSearchBar';
+import { placeToCoordinate, type Place } from '../../lib/placeSearch';
 import { useRouting } from '../../hooks/useRouting';
 import { useRouteFilter } from '../../hooks/useRouteFilter';
 import { useRouteBookmarks } from '../../hooks/useRouteBookmarks';
@@ -31,6 +33,8 @@ export default function MapScreen() {
   const [showFilter, setShowFilter] = useState(false);
   const [showElevation, setShowElevation] = useState(false);
   const [showHikingTrails, setShowHikingTrails] = useState(true);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [focusPoint, setFocusPoint] = useState<[number, number] | null>(null);
 
   const { calculateRoute, routeResult, isCalculating, error, clearRoute, loadDemoRoute } = useRouting();
   const { sacScales, fetchFilteredRoutes } = useRouteFilter();
@@ -71,6 +75,29 @@ export default function MapScreen() {
     setPlanningMode('idle');
   }, [clearRoute]);
 
+  const handlePlaceSelect = useCallback((place: Place) => {
+    setSelectedPlace(place);
+    setFocusPoint(placeToCoordinate(place));
+  }, []);
+
+  const handleUsePlace = useCallback(
+    (target: 'start' | 'end') => {
+      if (!selectedPlace) return;
+      const coordinate = placeToCoordinate(selectedPlace);
+      if (target === 'start') setStartPoint(coordinate);
+      else setEndPoint(coordinate);
+      // Neuer Start oder neues Ziel macht eine berechnete Route ungültig
+      if (routeResult) clearRoute();
+      setPlanningMode('idle');
+    },
+    [selectedPlace, routeResult, clearRoute],
+  );
+
+  const handleClosePlace = useCallback(() => {
+    setSelectedPlace(null);
+    setFocusPoint(null);
+  }, []);
+
   const handleSaveRoute = useCallback(() => {
     if (routeResult) {
       showSuccessToast('Route wurde zur Merkliste hinzugefügt.');
@@ -86,7 +113,11 @@ export default function MapScreen() {
         startPoint={startPoint}
         endPoint={endPoint}
         showHikingTrails={showHikingTrails}
+        focusPoint={focusPoint}
       />
+
+      {/* Ortssuche (links neben der Top Bar) */}
+      <PlaceSearchBar style={styles.searchBar} onSelect={handlePlaceSelect} />
 
       {/* Top Bar */}
       <View style={styles.topBar}>
@@ -113,6 +144,33 @@ export default function MapScreen() {
 
       {/* Planning Controls */}
       <View style={styles.planningBar}>
+        {selectedPlace && (
+          <View style={styles.placeCard}>
+            <View style={styles.placeInfo}>
+              <Text style={styles.placeName} numberOfLines={1}>
+                {selectedPlace.name}
+              </Text>
+              <Text style={styles.placeKind}>{selectedPlace.kind}</Text>
+            </View>
+            <Pressable style={styles.planBtn} onPress={() => handleUsePlace('start')}>
+              <Ionicons name="location" size={14} color={Colors.success} />
+              <Text style={styles.planBtnText}>Als Start</Text>
+            </Pressable>
+            <Pressable style={styles.planBtn} onPress={() => handleUsePlace('end')}>
+              <Ionicons name="flag" size={14} color={Colors.error} />
+              <Text style={styles.planBtnText}>Als Ziel</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleClosePlace}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Ort schliessen"
+            >
+              <Ionicons name="close" size={20} color={Colors.textSecondary} />
+            </Pressable>
+          </View>
+        )}
+
         {planningMode === 'idle' && !routeResult && (
           <>
             <Pressable
@@ -295,6 +353,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  searchBar: {
+    position: 'absolute',
+    top: 56,
+    left: 12,
+    // Platz für die zwei Knöpfe der Top Bar (2 × 44 + 8 Abstand + 16 Rand + 8)
+    right: 120,
+    // Trefferliste liegt über der Planungsleiste
+    zIndex: 20,
+    elevation: 10,
+  },
+  placeCard: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surface,
+    paddingLeft: 14,
+    paddingRight: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  placeInfo: {
+    flex: 1,
+  },
+  placeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  placeKind: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   topBar: {
     position: 'absolute',
