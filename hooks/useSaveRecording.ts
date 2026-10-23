@@ -52,14 +52,14 @@ export function useSaveRecording() {
           started_at: input.startedAt ? new Date(input.startedAt).toISOString() : null,
           finished_at: new Date().toISOString(),
           is_hidden: false,
+          // Nur Länge und Breite: recordings.geom ist eine 2D-Spalte
+          // (geometry(LineString, 4326)). Mit Höhe als dritter Zahl lehnt die
+          // Datenbank die ganze Zeile ab («Geometry has Z dimension but column
+          // does not»); die Höhenmeter stehen in eigenen Spalten.
           geom: trackPoints.length >= 2
             ? {
                 type: 'LineString',
-                coordinates: trackPoints.map((p) => [
-                  p.longitude,
-                  p.latitude,
-                  p.altitude ?? 0,
-                ]),
+                coordinates: trackPoints.map((p) => [p.longitude, p.latitude]),
               }
             : null,
         })

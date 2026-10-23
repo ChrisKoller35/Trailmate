@@ -124,7 +124,8 @@ describe('useSaveRecording', () => {
       steps: null,
       started_at: '2026-10-12T08:00:00.000Z',
       is_hidden: false,
-      geom: { type: 'LineString', coordinates: [[8.2, 47, 1200], [8.21, 47.01, 0]] },
+      // 2D, sonst lehnt die Spalte geometry(LineString, 4326) die Zeile ab
+      geom: { type: 'LineString', coordinates: [[8.2, 47], [8.21, 47.01]] },
     });
 
     expect(checkAndAwardBadges).toHaveBeenCalledWith('me');
