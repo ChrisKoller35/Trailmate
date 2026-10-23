@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { showErrorToast, showInfoToast, showSuccessToast } from '../lib/toast';
+import { showErrorToast, showInfoToast } from '../lib/toast';
 import { confirmAction } from '../lib/dialog';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -25,18 +25,13 @@ import * as Sharing from 'expo-sharing';
 import { Colors } from '../constants';
 import { useRecordingStore } from '../stores/recordingStore';
 import { useAuthStore } from '../stores/authStore';
-import { supabase } from '../lib/supabase';
 import { formatDuration, formatDistance } from '../lib/trackingCalculations';
 import { exportRecordingAsGPX } from '../lib/gpxExport';
 import { ElevationProfile } from '../components/map/ElevationProfile';
-import { checkAndAwardBadges, updateChallengeProgress } from '../lib/badgeEngine';
+import { buildTourShareText, formatSwissNumber } from '../lib/tourShareText';
+import { useSaveRecording } from '../hooks/useSaveRecording';
 
 import { SWISSTOPO_STYLE_JSON } from '../lib/mapStyle';
-
-function formatSwissNumber(n: number): string {
-  const str = Math.round(n).toString();
-  return str.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019');
-}
 
 function computeBounds(points: { longitude: number; latitude: number }[]) {
   if (points.length === 0) return null;
@@ -59,8 +54,9 @@ function computeBounds(points: { longitude: number; latitude: number }[]) {
 export default function TourSummaryScreen() {
   const router = useRouter();
   const [title, setTitle] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const { saveRecording, isSaving } = useSaveRecording();
+  const savingRef = useRef(false);
 
   const trackPoints = useRecordingStore((s) => s.trackPoints);
   const currentStats = useRecordingStore((s) => s.currentStats);
@@ -68,9 +64,7 @@ export default function TourSummaryScreen() {
   const totalPauseDuration = useRecordingStore((s) => s.totalPauseDuration);
   const reset = useRecordingStore((s) => s.reset);
 
-  const session = useAuthStore((s) => s.session);
   const profile = useAuthStore((s) => s.profile);
-  const userId = session?.user?.id;
   const isPremium = profile?.is_premium ?? false;
 
   const pauseSeconds = Math.floor(totalPauseDuration / 1000);
@@ -91,76 +85,27 @@ export default function TourSummaryScreen() {
 
   const bounds = React.useMemo(() => computeBounds(trackPoints), [trackPoints]);
 
-  const handleSave = useCallback(async () => {
-    if (!userId) {
-      showErrorToast('Du musst angemeldet sein, um eine Tour zu speichern.');
-      return;
-    }
-
-    setIsSaving(true);
+  // Speichert die Tour einmal; ein zweiter Tipp während des Speicherns wird ignoriert.
+  const saveOnce = useCallback(async () => {
+    if (savingRef.current) return null;
+    savingRef.current = true;
     try {
-      const recordingTitle = title.trim() || 'Unbenannte Tour';
-      const finishedAt = new Date().toISOString();
-      const startedAtStr = startedAt
-        ? new Date(startedAt).toISOString()
-        : null;
-
-      const { error } = await supabase.from('recordings').insert({
-        user_id: userId,
-        title: recordingTitle,
-        distance_m: Math.round(currentStats.distance),
-        elevation_gain_m: Math.round(currentStats.elevationGain),
-        elevation_loss_m: Math.round(currentStats.elevationLoss),
-        duration_seconds: Math.round(currentStats.duration),
-        moving_time_seconds: Math.round(movingSeconds),
-        avg_speed_kmh: Math.round(currentStats.avgSpeed * 10) / 10,
-        steps: currentStats.steps > 0 ? currentStats.steps : null,
-        started_at: startedAtStr,
-        finished_at: finishedAt,
-        is_hidden: false,
-        geom: trackPoints.length >= 2
-          ? {
-              type: 'LineString',
-              coordinates: trackPoints.map((p) => [
-                p.longitude,
-                p.latitude,
-                p.altitude ?? 0,
-              ]),
-            }
-          : null,
+      return await saveRecording({
+        title,
+        stats: currentStats,
+        movingSeconds,
+        startedAt,
+        trackPoints,
       });
-
-      if (error) {
-        showErrorToast('Die Tour konnte nicht gespeichert werden. Bitte versuche es erneut.');
-        return;
-      }
-
-      // Check and award badges after successful save
-      try {
-        const newBadges = await checkAndAwardBadges(userId);
-
-        // Update challenge progress for active challenges
-        await updateChallengeProgress(userId, currentStats);
-
-        if (newBadges.length > 0) {
-          showSuccessToast(
-            `🏆 Tour gespeichert! Du hast ${newBadges.length} neue${newBadges.length > 1 ? ' Abzeichen' : 's Abzeichen'} verdient!`,
-          );
-          reset();
-          router.replace('/(tabs)/record');
-          return;
-        }
-      } catch {
-        // Badge check failed silently - tour is still saved
-      }
-
-      showSuccessToast('Deine Tour wurde erfolgreich gespeichert.');
-      reset();
-      router.replace('/(tabs)/record');
     } finally {
-      setIsSaving(false);
+      savingRef.current = false;
     }
-  }, [userId, title, startedAt, currentStats, movingSeconds, reset, router]);
+  }, [saveRecording, title, currentStats, movingSeconds, startedAt, trackPoints]);
+
+  const handleSave = useCallback(async () => {
+    const recordingId = await saveOnce();
+    if (recordingId) router.replace('/(tabs)/record');
+  }, [saveOnce, router]);
 
   const handleExportGPX = useCallback(async () => {
     if (!isPremium) {
@@ -205,9 +150,18 @@ export default function TourSummaryScreen() {
     router.replace('/(tabs)/record');
   }, [reset, router]);
 
-  const handleShareFeed = useCallback(() => {
-    showInfoToast('Das Teilen im Feed wird in einem zukünftigen Update verfügbar sein.');
-  }, []);
+  const handleShareFeed = useCallback(async () => {
+    // Text vor dem Speichern bauen – danach ist der Aufzeichnungs-Speicher leer.
+    const text = buildTourShareText({
+      title,
+      distanceM: currentStats.distance,
+      elevationGainM: currentStats.elevationGain,
+      durationSeconds: currentStats.duration,
+      movingSeconds,
+    });
+    const recordingId = await saveOnce();
+    if (recordingId) router.replace({ pathname: '/create-post', params: { text } });
+  }, [title, currentStats, movingSeconds, saveOnce, router]);
 
   const stats = [
     {
@@ -403,8 +357,10 @@ export default function TourSummaryScreen() {
               styles.button,
               styles.shareButton,
               pressed && styles.buttonPressed,
+              isSaving && styles.buttonDisabled,
             ]}
             onPress={handleShareFeed}
+            disabled={isSaving}
           >
             <Ionicons
               name="share-social-outline"

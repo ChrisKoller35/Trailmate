@@ -8,11 +8,12 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { buildTourShareText } from '../lib/tourShareText';
 import type { Recording } from '../types';
 
 function formatDistance(meters: number | null): string {
@@ -42,6 +43,7 @@ function formatDate(dateStr: string | null): string {
 export default function RecordingHistoryScreen() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
+  const router = useRouter();
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +80,23 @@ export default function RecordingHistoryScreen() {
     fetchRecordings();
   }, [fetchRecordings]);
 
+  const handleShare = useCallback(
+    (item: Recording) => {
+      const text = buildTourShareText({
+        title: item.title,
+        distanceM: item.distance_m,
+        elevationGainM: item.elevation_gain_m,
+        durationSeconds: item.duration_seconds,
+        movingSeconds: item.moving_time_seconds,
+      });
+      router.push({
+        pathname: '/create-post',
+        params: item.route_id ? { text, routeId: item.route_id } : { text },
+      });
+    },
+    [router],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: Recording }) => (
       <Pressable
@@ -86,9 +105,20 @@ export default function RecordingHistoryScreen() {
           pressed && styles.cardPressed,
         ]}
       >
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {item.title || 'Unbenannte Tour'}
-        </Text>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title || 'Unbenannte Tour'}
+          </Text>
+          <Pressable
+            onPress={() => handleShare(item)}
+            hitSlop={10}
+            style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Im Feed teilen"
+          >
+            <Ionicons name="share-social-outline" size={18} color={Colors.primary} />
+          </Pressable>
+        </View>
         <View style={styles.cardStats}>
           <View style={styles.cardStat}>
             <Ionicons
@@ -126,7 +156,7 @@ export default function RecordingHistoryScreen() {
         <Text style={styles.cardDate}>{formatDate(item.started_at)}</Text>
       </Pressable>
     ),
-    [],
+    [handleShare],
   );
 
   const keyExtractor = useCallback((item: Recording) => item.id, []);
@@ -236,11 +266,25 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     transform: [{ scale: 0.99 }],
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   cardTitle: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: 8,
+  },
+  shareButton: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceVariant,
+  },
+  shareButtonPressed: {
+    opacity: 0.7,
   },
   cardStats: {
     flexDirection: 'row',

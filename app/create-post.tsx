@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 // Lazy-loaded to avoid crash when native module isn't available
@@ -33,15 +33,37 @@ import ImageCropModal from '../components/ImageCropModal';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { showErrorToast } from '../lib/toast';
+import { parseCreatePostParams } from '../lib/createPostParams';
 import type { Route } from '../types';
+
+type SelectedRoute = Pick<Route, 'id' | 'title' | 'distance_m' | 'elevation_gain_m' | 'sac_scale'>;
+
+function errorCode(err: unknown): string | undefined {
+  if (err && typeof err === 'object' && 'code' in err) {
+    const code = (err as { code: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
+function errorMessage(err: unknown): string | undefined {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message: unknown }).message;
+    return typeof message === 'string' ? message : undefined;
+  }
+  return undefined;
+}
 
 export default function CreatePostScreen() {
   const { createPost, pickMedia, isSubmitting, uploadProgress } = useCreatePost();
   const { requestLocationPermission } = usePermissions();
+  const rawParams = useLocalSearchParams();
+  const { text: paramText, routeId: paramRouteId, groupId, communityId } =
+    parseCreatePostParams(rawParams);
 
   const [content, setContent] = useState('');
   const [mediaAssets, setMediaAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
   const [showRoutePicker, setShowRoutePicker] = useState(false);
   const [postLocation, setPostLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
@@ -49,6 +71,41 @@ export default function CreatePostScreen() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [aspectRatio, setAspectRatio] = useState<'original' | '4:3' | '16:9'>('original');
   const [cropModalIndex, setCropModalIndex] = useState<number | null>(null);
+  const [targetName, setTargetName] = useState<string | null>(null);
+
+  // Vorbereiteten Text nur einmal übernehmen, danach ist das Feld frei editierbar.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !paramText) return;
+    prefilled.current = true;
+    setContent(paramText);
+  }, [paramText]);
+
+  useEffect(() => {
+    if (!paramRouteId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('routes')
+        .select('id, title, distance_m, elevation_gain_m, sac_scale')
+        .eq('id', paramRouteId)
+        .maybeSingle();
+      if (!cancelled && data) setSelectedRoute(data as SelectedRoute);
+    })();
+    return () => { cancelled = true; };
+  }, [paramRouteId]);
+
+  useEffect(() => {
+    const table = groupId ? 'groups' : communityId ? 'communities' : null;
+    const id = groupId ?? communityId;
+    if (!table || !id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from(table).select('name').eq('id', id).maybeSingle();
+      if (!cancelled) setTargetName((data as { name: string } | null)?.name ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [groupId, communityId]);
 
   const ASPECT_RATIOS: { key: typeof aspectRatio; label: string; value: number | null; aspect: [number, number] | undefined }[] = [
     { key: 'original', label: 'Original', value: null, aspect: undefined },
@@ -146,13 +203,23 @@ export default function CreatePostScreen() {
         mediaAssets,
         routeId: selectedRoute?.id ?? null,
         location: postLocation,
+        groupId,
+        communityId,
       });
       if (result) {
         if (router.canGoBack()) router.back();
         else router.replace('/(tabs)');
       }
-    } catch (err: any) {
-      showErrorToast(err?.message ?? 'Beitrag konnte nicht erstellt werden.');
+    } catch (err: unknown) {
+      if (errorCode(err) === '42501' && (groupId || communityId)) {
+        showErrorToast(
+          groupId
+            ? 'Du bist kein Mitglied dieser Gruppe'
+            : 'Du bist kein Mitglied dieser Community',
+        );
+        return;
+      }
+      showErrorToast(errorMessage(err) ?? 'Beitrag konnte nicht erstellt werden.');
     }
   };
 
@@ -194,6 +261,21 @@ export default function CreatePostScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Ziel: Gruppe oder Community */}
+        {(groupId || communityId) && (
+          <View style={styles.targetBanner}>
+            <Ionicons
+              name={groupId ? 'people-outline' : 'globe-outline'}
+              size={18}
+              color={Colors.primary}
+            />
+            <Text style={styles.targetText} numberOfLines={1}>
+              {groupId ? 'Beitrag in der Gruppe ' : 'Beitrag in der Community '}
+              {targetName ?? '…'}
+            </Text>
+          </View>
+        )}
+
         {/* Text input */}
         <TextInput
           style={styles.textInput}
@@ -514,6 +596,22 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  targetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: Colors.surfaceVariant,
+    borderRadius: 10,
+  },
+  targetText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
   },
   textInput: {
     fontSize: 16,
