@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Pedometer } from 'expo-sensors';
 import {
@@ -36,6 +36,7 @@ import { setActiveRecordingId, getActiveRecordingId } from '../../lib/trackPoint
 import { SWISSTOPO_STYLE_JSON } from '../../lib/mapStyle';
 import { chooseAction, confirmAction } from '../../lib/dialog';
 import { showErrorToast, showInfoToast } from '../../lib/toast';
+import { normalizeRouteId } from '../../lib/routeId';
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -47,6 +48,8 @@ function formatElapsed(seconds: number): string {
 
 export default function RecordScreen() {
   const router = useRouter();
+  // Gesetzt, wenn «Navigation starten» in route-detail die Aufnahme öffnet
+  const { routeId } = useLocalSearchParams<{ routeId?: string | string[] }>();
   const cameraRef = useRef<any>(null);
   const { requestTrackingPermissions } = usePermissions();
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -166,14 +169,17 @@ export default function RecordScreen() {
       if (!granted) return;
       setPermissionGranted(true);
     }
-    startRecording();
+    startRecording(normalizeRouteId(routeId));
+    // Parameter leeren, damit eine spätere freie Aufzeichnung über den Tab
+    // nicht an der alten Route hängt
+    if (routeId) router.setParams({ routeId: '' });
     const result = await startTracking();
     if (!result.success) {
       // GPS could not be started – reset recording state
       useRecordingStore.getState().reset();
       showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
     }
-  }, [permissionGranted, startRecording, requestTrackingPermissions]);
+  }, [permissionGranted, startRecording, requestTrackingPermissions, routeId, router]);
 
   const handlePause = useCallback(async () => {
     pauseRecording();
