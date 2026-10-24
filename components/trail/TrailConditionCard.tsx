@@ -282,7 +282,7 @@ function ConditionReportItem({
       {upvoteState === 'own' ? (
         <View style={styles.upvoteCount}>
           <Ionicons name="thumbs-up-outline" size={16} color={Colors.textSecondary} />
-          <Text style={styles.upvoteCountText}>{report.helpfulness_score}</Text>
+          <Text style={styles.reportDate}>{report.helpfulness_score}</Text>
         </View>
       ) : (
         <TouchableOpacity
@@ -500,11 +500,6 @@ const styles = StyleSheet.create({
     gap: 4,
     alignSelf: 'flex-start',
     paddingVertical: 4,
-  },
-  upvoteCountText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
   },
   reportButton: {
     flexDirection: 'row',
