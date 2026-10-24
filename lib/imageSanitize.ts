@@ -1,3 +1,5 @@
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+
 export interface UploadFile {
   uri: string;
   name: string;
@@ -39,10 +41,9 @@ export async function sanitizeImageForUpload(file: UploadFile): Promise<UploadFi
 
   const png = isPng(file);
   try {
-    const IM = await import('expo-image-manipulator');
-    const result = await IM.manipulateAsync(file.uri, [], {
+    const result = await manipulateAsync(file.uri, [], {
       compress: 0.9,
-      format: png ? IM.SaveFormat.PNG : IM.SaveFormat.JPEG,
+      format: png ? SaveFormat.PNG : SaveFormat.JPEG,
     });
     return {
       uri: result.uri,
