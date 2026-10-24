@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import { Colors, REGIONS, HIKING_LEVELS, APP_CONFIG } from '../constants';
 import { supabase } from '../lib/supabase';
 import { uploadAvatar, uploadCoverImage } from '../lib/storage';
 import { useAuthStore } from '../stores/authStore';
+import { useAuth } from '../hooks/useAuth';
+import { normalizeUsername, validateUsername } from '../lib/username';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import type { HikingLevel } from '../types';
@@ -37,25 +39,34 @@ export default function EditProfileScreen() {
   const [avatarUri, setAvatarUri] = useState(profile?.avatar_url ?? null);
   const [coverUri, setCoverUri] = useState(profile?.cover_image_url ?? null);
   const [saving, setSaving] = useState(false);
-  const [usernameError, setUsernameError] = useState('');
+  // Zuletzt geprüfter Name und Ergebnis; weicht er ab, läuft die Prüfung noch.
+  const [checked, setChecked] = useState<{ name: string; free: boolean } | null>(null);
+  // checkUsername hängt nur von supabase ab, die erste Funktion genügt.
+  const checkUsernameRef = useRef(useAuth().checkUsername);
 
-  // Live username uniqueness check
+  // Der eigene, unveränderte Name braucht keine Prüfung (alte Namen dürfen
+  // vom heutigen Format abweichen).
+  const isOwnUsername = username === profile?.username;
+  const usernameFormatError = isOwnUsername ? null : validateUsername(username);
+
+  // Live-Prüfung über is_username_available (sieht auch private Konten)
   useEffect(() => {
-    if (!username || username === profile?.username) {
-      setUsernameError('');
-      return;
-    }
+    if (isOwnUsername || usernameFormatError) return;
+    let cancelled = false;
     const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', username)
-        .neq('id', profile?.id ?? '')
-        .maybeSingle();
-      setUsernameError(data ? 'Benutzername bereits vergeben' : '');
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [username, profile?.id, profile?.username]);
+      const free = await checkUsernameRef.current(username);
+      if (!cancelled) setChecked({ name: username, free });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username, isOwnUsername, usernameFormatError]);
+
+  const isCheckingUsername = !isOwnUsername && !usernameFormatError && checked?.name !== username;
+  const isUsernameTaken = !isOwnUsername && checked?.name === username && !checked.free;
+  const usernameError =
+    usernameFormatError ?? (isUsernameTaken ? 'Benutzername bereits vergeben' : '');
 
   const pickImage = async (type: 'avatar' | 'cover') => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -75,7 +86,7 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!profile) return;
-    if (usernameError) return;
+    if (usernameError || isCheckingUsername) return;
 
     setSaving(true);
     try {
@@ -189,9 +200,10 @@ export default function EditProfileScreen() {
             <Input
               label="Benutzername"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(text: string) => setUsername(normalizeUsername(text))}
               placeholder="Eindeutiger Benutzername"
               autoCapitalize="none"
+              autoCorrect={false}
               error={usernameError}
             />
 
@@ -260,7 +272,7 @@ export default function EditProfileScreen() {
             </View>
 
             <View style={{ marginTop: 8 }}>
-              <Button title="Speichern" onPress={handleSave} loading={saving} disabled={!!usernameError} />
+              <Button title="Speichern" onPress={handleSave} loading={saving} disabled={!!usernameError || isCheckingUsername} />
             </View>
           </View>
         </ScrollView>

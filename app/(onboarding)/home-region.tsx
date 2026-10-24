@@ -89,7 +89,13 @@ export default function HomeRegionScreen() {
     } catch (err) {
       console.error('Onboarding save error:', err);
       // Supabase-Fehler sind nicht immer Error-Instanzen, haben aber eine message.
-      const message = (err as { message?: string } | null)?.message;
+      const { code, message } = (err ?? {}) as { code?: string; message?: string };
+      // Name zwischen Prüfung in Schritt 2 und Speichern vergeben: dorthin zurück.
+      if (code === '23505' && message?.includes('username')) {
+        showErrorToast('Dieser Benutzername ist inzwischen vergeben.');
+        router.replace('/(onboarding)/profile-basics');
+        return;
+      }
       showErrorToast(message ?? 'Profil konnte nicht gespeichert werden. Du kannst es später in den Einstellungen nachtragen.');
     } finally {
       setIsSaving(false);
