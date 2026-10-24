@@ -11,8 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 import {
+  getUpvoteState,
   useTrailConditions,
   type TrailConditionWithUser,
+  type UpvoteState,
 } from '../../hooks/useTrailConditions';
 
 // ─── Constants ─────────────────────────────────────────────
@@ -73,8 +75,21 @@ export default function TrailConditionCard({
     isLoading,
     error,
     upvote,
+    votedIds,
+    upvotingId,
+    userId,
     refreshConditions,
   } = useTrailConditions(routeId);
+
+  const renderReport = (item: TrailConditionWithUser, isOutdated: boolean) => (
+    <ConditionReportItem
+      report={item}
+      isOutdated={isOutdated}
+      upvoteState={getUpvoteState(item, userId, votedIds)}
+      isUpvoting={upvotingId === item.id}
+      onUpvote={() => upvote(item.id)}
+    />
+  );
 
   // Refresh when refreshKey changes (e.g. after submitting a report)
   useEffect(() => {
@@ -137,13 +152,7 @@ export default function TrailConditionCard({
           data={recentConditions}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
-          renderItem={({ item }) => (
-            <ConditionReportItem
-              report={item}
-              isOutdated={false}
-              onUpvote={() => upvote(item.id)}
-            />
-          )}
+          renderItem={({ item }) => renderReport(item, false)}
         />
       )}
 
@@ -155,13 +164,7 @@ export default function TrailConditionCard({
             data={outdatedConditions}
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
-            renderItem={({ item }) => (
-              <ConditionReportItem
-                report={item}
-                isOutdated={true}
-                onUpvote={() => upvote(item.id)}
-              />
-            )}
+            renderItem={({ item }) => renderReport(item, true)}
           />
         </View>
       )}
@@ -184,12 +187,16 @@ export default function TrailConditionCard({
 interface ConditionReportItemProps {
   report: TrailConditionWithUser;
   isOutdated: boolean;
+  upvoteState: UpvoteState;
+  isUpvoting: boolean;
   onUpvote: () => void;
 }
 
 function ConditionReportItem({
   report,
   isOutdated,
+  upvoteState,
+  isUpvoting,
   onUpvote,
 }: ConditionReportItemProps) {
   const activeConditions = getActiveConditions(report.conditions);
@@ -271,17 +278,29 @@ function ConditionReportItem({
         />
       )}
 
-      {/* Upvote */}
-      <TouchableOpacity
-        style={styles.upvoteButton}
-        onPress={onUpvote}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="thumbs-up-outline" size={16} color={Colors.primary} />
-        <Text style={styles.upvoteText}>
-          Hilfreich ({report.helpfulness_score})
-        </Text>
-      </TouchableOpacity>
+      {/* Upvote: eigener Bericht nur Zahl, nach der Stimme ausgefüllt */}
+      {upvoteState === 'own' ? (
+        <View style={styles.upvoteCount}>
+          <Ionicons name="thumbs-up-outline" size={16} color={Colors.textSecondary} />
+          <Text style={styles.upvoteCountText}>{report.helpfulness_score}</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.upvoteButton, isUpvoting && styles.upvoteButtonBusy]}
+          onPress={onUpvote}
+          disabled={upvoteState === 'voted' || isUpvoting}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={upvoteState === 'voted' ? 'thumbs-up' : 'thumbs-up-outline'}
+            size={16}
+            color={Colors.primary}
+          />
+          <Text style={styles.upvoteText}>
+            Hilfreich ({report.helpfulness_score})
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -467,9 +486,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  upvoteButtonBusy: {
+    opacity: 0.5,
+  },
   upvoteText: {
     fontSize: 12,
     color: Colors.primary,
+    fontWeight: '500',
+  },
+  upvoteCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  upvoteCountText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
     fontWeight: '500',
   },
   reportButton: {
