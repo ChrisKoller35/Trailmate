@@ -7,6 +7,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="profile-basics" />
       <Stack.Screen name="hiking-level" />
       <Stack.Screen name="home-region" />
+      <Stack.Screen name="follow-suggestions" />
     </Stack>
   );
 }

@@ -19,12 +19,11 @@ import { useOnboardingStore } from '../../stores/onboardingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { uploadAvatar } from '../../lib/storage';
-import type { User } from '../../types';
 
 export default function HomeRegionScreen() {
   const router = useRouter();
   const { homeRegion, setHomeRegion, setCurrentStep, displayName, username, avatarUri, hikingLevel, completeOnboarding } = useOnboardingStore();
-  const { session, setProfile, setOnboardingComplete } = useAuthStore();
+  const { session } = useAuthStore();
   const { requestLocationPermission } = usePermissions();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -73,11 +72,9 @@ export default function HomeRegionScreen() {
         finalAvatarUrl = result.publicUrl;
       }
 
-      // Save profile to users table
-      // Save profile to users table via upsert
-
-      // Upsert profile – works whether row exists or not
-      const { data: profile, error: saveError } = await supabase
+      // Upsert profile – works whether row exists or not.
+      // setProfile erst in Schritt 5, sonst springt app/_layout.tsx sofort zu den Tabs.
+      const { error: saveError } = await supabase
         .from('users')
         .upsert({
           id: session.user.id,
@@ -86,38 +83,25 @@ export default function HomeRegionScreen() {
           avatar_url: finalAvatarUrl,
           hiking_level: hikingLevel,
           home_region: homeRegion,
-        }, { onConflict: 'id' })
-        .select()
-        .single();
+        }, { onConflict: 'id' });
 
-      if (saveError) {
-        console.error('Onboarding save error:', saveError);
-        throw saveError;
-      }
-
-      if (profile) {
-        setProfile(profile as User);
-      }
-
-      completeOnboarding();
-      setOnboardingComplete(true);
-      router.replace('/(tabs)/explore');
-    } catch (err: any) {
+      if (saveError) throw saveError;
+    } catch (err) {
       console.error('Onboarding save error:', err);
-      showErrorToast(err.message ?? 'Profil konnte nicht gespeichert werden. Du kannst es später in den Einstellungen nachtragen.');
-      // Complete onboarding anyway so the user doesn't get stuck in a loop
-      completeOnboarding();
-      setOnboardingComplete(true);
-      router.replace('/(tabs)/explore');
+      // Supabase-Fehler sind nicht immer Error-Instanzen, haben aber eine message.
+      const message = (err as { message?: string } | null)?.message;
+      showErrorToast(message ?? 'Profil konnte nicht gespeichert werden. Du kannst es später in den Einstellungen nachtragen.');
     } finally {
       setIsSaving(false);
     }
+    // Auch nach einem Speicherfehler weiter, damit niemand im Onboarding hängen bleibt.
+    router.push('/(onboarding)/follow-suggestions');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <ProgressIndicator step={4} total={4} />
+        <ProgressIndicator step={4} total={5} />
         <Text style={styles.title}>Wo wanderst du am liebsten?</Text>
 
         <Pressable style={styles.detectButton} onPress={detectLocation}>
@@ -159,7 +143,7 @@ export default function HomeRegionScreen() {
         </ScrollView>
 
         <Button
-          title={isSaving ? 'Wird gespeichert…' : 'Los geht\'s'}
+          title={isSaving ? 'Wird gespeichert…' : 'Weiter'}
           onPress={finish}
           disabled={isSaving}
         />

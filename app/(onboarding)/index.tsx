@@ -17,7 +17,7 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <ProgressIndicator step={1} total={4} />
+        <ProgressIndicator step={1} total={5} />
 
         <View style={styles.hero}>
           <Text style={styles.emoji}>🏔️</Text>

@@ -79,7 +79,7 @@ export default function ProfileBasicsScreen() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          <ProgressIndicator step={2} total={4} />
+          <ProgressIndicator step={2} total={5} />
           <Text style={styles.title}>Wie heisst du?</Text>
 
           {/* Avatar Picker */}
