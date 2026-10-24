@@ -17,7 +17,7 @@ export default function HikingLevelScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <ProgressIndicator step={3} total={4} />
+        <ProgressIndicator step={3} total={5} />
         <Text style={styles.title}>Wie erfahren bist du?</Text>
 
         <View style={styles.cards}>

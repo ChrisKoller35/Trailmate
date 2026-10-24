@@ -117,7 +117,7 @@ export default function HomeRegionScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <ProgressIndicator step={4} total={4} />
+        <ProgressIndicator step={4} total={5} />
         <Text style={styles.title}>Wo wanderst du am liebsten?</Text>
 
         <Pressable style={styles.detectButton} onPress={detectLocation}>
