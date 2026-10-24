@@ -61,14 +61,14 @@ export default function TourSummaryScreen() {
   const trackPoints = useRecordingStore((s) => s.trackPoints);
   const currentStats = useRecordingStore((s) => s.currentStats);
   const startedAt = useRecordingStore((s) => s.startedAt);
-  const totalPauseDuration = useRecordingStore((s) => s.totalPauseDuration);
   const reset = useRecordingStore((s) => s.reset);
 
   const profile = useAuthStore((s) => s.profile);
   const isPremium = profile?.is_premium ?? false;
 
-  const pauseSeconds = Math.floor(totalPauseDuration / 1000);
-  const movingSeconds = Math.max(0, currentStats.duration - pauseSeconds);
+  // Gehzeit ohne manuelle und automatische Pausen (siehe recordingStore.updateStats).
+  const movingSeconds = Math.round(currentStats.movingTime);
+  const pauseSeconds = Math.max(0, Math.round(currentStats.duration) - movingSeconds);
 
   // Build GeoJSON for map preview
   const trackGeoJSON = React.useMemo(() => {
