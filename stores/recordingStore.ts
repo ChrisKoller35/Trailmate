@@ -13,12 +13,15 @@ import {
   flushRemainingPoints,
   deleteTrackPoints,
 } from '../lib/trackPointStorage';
+import { normalizeRouteId } from '../lib/routeId';
 
 type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
 interface RecordingState {
   status: RecordingStatus;
   recordingId: string | null;
+  // Geplante Route, falls die Aufzeichnung über «Navigation starten» kam
+  routeId: string | null;
   trackPoints: TrackPoint[];
   startedAt: number | null;
   pausedAt: number | null;
@@ -35,7 +38,7 @@ interface RecordingState {
     steps: number;
   };
 
-  startRecording: () => void;
+  startRecording: (routeId?: string | null) => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
   stopRecording: () => void;
@@ -59,6 +62,7 @@ const initialStats = {
 export const useRecordingStore = create<RecordingState>((set, get) => ({
   status: 'idle',
   recordingId: null,
+  routeId: null,
   trackPoints: [],
   startedAt: null,
   pausedAt: null,
@@ -67,7 +71,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   manualPauseActive: false,
   currentStats: { ...initialStats },
 
-  startRecording: () => {
+  startRecording: (routeId?: string | null) => {
     const id = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -75,6 +79,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({
       status: 'recording',
       recordingId: id,
+      routeId: normalizeRouteId(routeId),
       trackPoints: [],
       startedAt: Date.now(),
       pausedAt: null,
@@ -157,6 +162,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({
       status: 'idle',
       recordingId: null,
+      routeId: null,
       trackPoints: [],
       startedAt: null,
       pausedAt: null,
@@ -184,6 +190,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     set({
       status: 'stopped',
       recordingId,
+      // Die Zuordnung zur Route übersteht keinen Absturz
+      routeId: null,
       trackPoints: points,
       startedAt,
       pausedAt: null,
