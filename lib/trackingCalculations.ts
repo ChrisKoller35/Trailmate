@@ -2,6 +2,8 @@ import type { TrackPoint } from '../types';
 
 const EARTH_RADIUS = 6371000; // meters
 const ELEVATION_NOISE_THRESHOLD = 2; // meters
+const AUTO_PAUSE_MIN_SECONDS = 60;
+const AUTO_PAUSE_MAX_SPEED = 0.3; // m/s
 
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
@@ -58,6 +60,47 @@ export function calculateElevation(points: TrackPoint[]): { gain: number; loss: 
 export function calculateAvgSpeed(distanceM: number, movingTimeS: number): number {
   if (movingTimeS <= 0) return 0;
   return (distanceM / movingTimeS) * 3.6;
+}
+
+export interface ManualPause {
+  start: number;
+  end: number | null;
+}
+
+// Stillstand zeigt sich als lange Zeitlücke zwischen zwei nahen Punkten, weil
+// der Tracking-Service Punkte unter 10 m Abstand verwirft. Zeit, die in eine
+// manuelle Pause fällt, wird nicht gezählt, damit nichts doppelt abgezogen wird.
+export function calculateAutoPauseSeconds(
+  points: TrackPoint[],
+  manualPauses: ManualPause[] = []
+): number {
+  if (points.length < 2) return 0;
+  const lastTimestamp = points[points.length - 1].timestamp;
+
+  let pauseMs = 0;
+  for (let i = 1; i < points.length; i++) {
+    const t0 = points[i - 1].timestamp;
+    const t1 = points[i].timestamp;
+    const durationMs = t1 - t0;
+    if (durationMs <= 0 || durationMs < AUTO_PAUSE_MIN_SECONDS * 1000) continue;
+
+    const distance = calculateDistance(
+      points[i - 1].latitude,
+      points[i - 1].longitude,
+      points[i].latitude,
+      points[i].longitude
+    );
+    if (distance / (durationMs / 1000) >= AUTO_PAUSE_MAX_SPEED) continue;
+
+    let overlapMs = 0;
+    for (const pause of manualPauses) {
+      const end = pause.end ?? lastTimestamp;
+      overlapMs += Math.max(0, Math.min(t1, end) - Math.max(t0, pause.start));
+    }
+    pauseMs += Math.max(0, durationMs - overlapMs);
+  }
+
+  return pauseMs / 1000;
 }
 
 export function formatDuration(seconds: number): string {
