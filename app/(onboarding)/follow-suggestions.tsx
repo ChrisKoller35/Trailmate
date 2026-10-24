@@ -11,28 +11,27 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants';
+import { Colors, HIKING_LEVELS } from '../../constants';
 import { showErrorToast } from '../../lib/toast';
 import Button from '../../components/ui/Button';
 import ProgressIndicator from '../../components/onboarding/ProgressIndicator';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useFollow } from '../../hooks/useFollow';
 import { supabase } from '../../lib/supabase';
-import { uploadAvatar } from '../../lib/storage';
+import { followAll } from '../../lib/onboardingFollow';
 import type { User } from '../../types';
 
 export default function FollowSuggestionsScreen() {
   const router = useRouter();
   const {
-    displayName,
-    username,
-    avatarUri,
     hikingLevel,
     homeRegion,
     completeOnboarding,
     setCurrentStep,
   } = useOnboardingStore();
-  const { session, setProfile } = useAuthStore();
+  const { session, setProfile, setOnboardingComplete } = useAuthStore();
+  const { follow } = useFollow();
 
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -61,6 +60,7 @@ export default function FollowSuggestionsScreen() {
       .from('users')
       .select('*')
       .not('display_name', 'is', null)
+      .order('created_at', { ascending: false })
       .limit(15);
 
     if (homeRegion) {
@@ -92,69 +92,42 @@ export default function FollowSuggestionsScreen() {
     });
   };
 
-  const followAll = () => {
+  const selectAll = () => {
     setSelectedIds(new Set(suggestions.map((u) => u.id)));
   };
 
-  const finish = async () => {
-    if (!session?.user?.id) {
-      completeOnboarding();
-      router.replace('/(tabs)/explore');
-      return;
-    }
+  // Das Profil hat Schritt 4 gespeichert. setProfile erst hier, weil
+  // app/_layout.tsx sonst schon vorher zu den Tabs springt.
+  const finish = async (ids: string[]) => {
+    if (saving) return;
     setSaving(true);
-
     try {
-      // Upload avatar if selected
-      let finalAvatarUrl: string | null = null;
-      if (avatarUri) {
-        const ext = avatarUri.split('.').pop() || 'jpg';
-        const result = await uploadAvatar(session.user.id, {
-          uri: avatarUri,
-          name: `avatar.${ext}`,
-          type: `image/${ext}`,
-        });
-        finalAvatarUrl = result.publicUrl;
+      const userId = session?.user?.id;
+      if (userId) {
+        const { failed } = await followAll(ids, follow);
+        if (failed > 0) {
+          showErrorToast('Einigen Personen konnte nicht gefolgt werden');
+        }
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        if (profile) {
+          setProfile(profile as User);
+        }
       }
-
-      // Save profile to users table (upsert in case row doesn't exist yet)
-      const { data: profile } = await supabase
-        .from('users')
-        .upsert({
-          id: session.user.id,
-          display_name: displayName,
-          username,
-          avatar_url: finalAvatarUrl,
-          hiking_level: hikingLevel,
-          home_region: homeRegion,
-        })
-        .select()
-        .single();
-
-      if (profile) {
-        setProfile(profile as User);
-      }
-
-      // Insert follows
-      if (selectedIds.size > 0) {
-        const follows = Array.from(selectedIds).map((followingId) => ({
-          follower_id: session.user.id,
-          following_id: followingId,
-        }));
-        await supabase.from('follows').insert(follows);
-      }
-
-      completeOnboarding();
-      router.replace('/(tabs)/explore');
-    } catch (err: any) {
-      showErrorToast(err.message ?? 'Onboarding konnte nicht abgeschlossen werden.');
-    } finally {
-      setSaving(false);
+    } catch (err) {
+      console.error('Onboarding finish error:', err);
     }
+    completeOnboarding();
+    setOnboardingComplete(true);
+    router.replace('/(tabs)/explore');
   };
 
   const renderSuggestion = ({ item }: { item: User }) => {
     const isSelected = selectedIds.has(item.id);
+    const levelLabel = HIKING_LEVELS.find((l) => l.value === item.hiking_level)?.label;
     return (
       <View style={styles.suggestionRow}>
         {item.avatar_url ? (
@@ -167,8 +140,10 @@ export default function FollowSuggestionsScreen() {
         <View style={styles.suggestionInfo}>
           <Text style={styles.suggestionName}>{item.display_name}</Text>
           <Text style={styles.suggestionUsername}>@{item.username}</Text>
-          {item.home_region && (
-            <Text style={styles.suggestionMeta}>{item.home_region}</Text>
+          {(item.home_region || levelLabel) && (
+            <Text style={styles.suggestionMeta}>
+              {[item.home_region, levelLabel].filter(Boolean).join(' · ')}
+            </Text>
           )}
         </View>
         <Pressable
@@ -201,7 +176,7 @@ export default function FollowSuggestionsScreen() {
         ) : suggestions.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.emptyText}>
-              Noch keine Vorschläge verfügbar.
+              Noch keine Vorschläge in deiner Region
             </Text>
           </View>
         ) : (
@@ -215,8 +190,9 @@ export default function FollowSuggestionsScreen() {
             />
             <Button
               title="Allen folgen"
-              onPress={followAll}
+              onPress={selectAll}
               variant="outline"
+              disabled={saving}
             />
           </>
         )}
@@ -224,10 +200,14 @@ export default function FollowSuggestionsScreen() {
         <View style={styles.bottomButtons}>
           <Button
             title="Weiter"
-            onPress={finish}
+            onPress={() => finish(Array.from(selectedIds))}
             loading={saving}
           />
-          <Pressable onPress={finish} style={styles.skipContainer}>
+          <Pressable
+            onPress={() => finish([])}
+            disabled={saving}
+            style={[styles.skipContainer, saving && styles.skipDisabled]}
+          >
             <Text style={styles.skipText}>Überspringen</Text>
           </Pressable>
         </View>
@@ -322,6 +302,9 @@ const styles = StyleSheet.create({
   skipContainer: {
     alignItems: 'center',
     padding: 8,
+  },
+  skipDisabled: {
+    opacity: 0.5,
   },
   skipText: {
     fontSize: 14,
