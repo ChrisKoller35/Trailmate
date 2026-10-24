@@ -20,16 +20,20 @@ SELECT set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000022b2","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
 
+-- Aufruf und Score-Abfrage in getrennten Anweisungen: Eine Abfrage im selben
+-- Ausdruck wie der Aufruf sieht noch den Stand vor dem Aufruf.
 DO $$
-DECLARE c UUID := '00000000-0000-0000-0000-00000000c022';
+DECLARE
+  c UUID := '00000000-0000-0000-0000-00000000c022';
+  neu BOOLEAN;
 BEGIN
-  IF NOT upvote_trail_condition(c)
-     OR (SELECT helpfulness_score FROM trail_conditions WHERE id = c) <> 1 THEN
+  neu := upvote_trail_condition(c);
+  IF NOT neu OR (SELECT helpfulness_score FROM trail_conditions WHERE id = c) <> 1 THEN
     RAISE EXCEPTION 'FEHLER: erste Stimme nicht gezählt';
   END IF;
   RAISE NOTICE 'ok: erste Stimme zählt';
-  IF upvote_trail_condition(c)
-     OR (SELECT helpfulness_score FROM trail_conditions WHERE id = c) <> 1 THEN
+  neu := upvote_trail_condition(c);
+  IF neu OR (SELECT helpfulness_score FROM trail_conditions WHERE id = c) <> 1 THEN
     RAISE EXCEPTION 'FEHLER: zweite Stimme derselben Person gezählt';
   END IF;
   RAISE NOTICE 'ok: zweite Stimme derselben Person ändert nichts';
