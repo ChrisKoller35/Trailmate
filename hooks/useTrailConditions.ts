@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { queryKeys } from '../lib/queryKeys';
 import { uploadTrailConditionPhoto } from '../lib/storage';
+import { showErrorToast } from '../lib/toast';
 import type { TrailCondition } from '../types';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -22,6 +23,19 @@ export interface TrailConditionWithUser extends TrailCondition {
   };
 }
 
+/** own: eigener Bericht (nur Zahl), voted: schon gestimmt, open: tippbar */
+export type UpvoteState = 'own' | 'voted' | 'open';
+
+export function getUpvoteState(
+  report: Pick<TrailCondition, 'id' | 'user_id'>,
+  userId: string | undefined,
+  votedIds: ReadonlySet<string>,
+): UpvoteState {
+  if (userId && report.user_id === userId) return 'own';
+  if (votedIds.has(report.id)) return 'voted';
+  return 'open';
+}
+
 interface UseTrailConditionsReturn {
   conditions: TrailConditionWithUser[];
   recentConditions: TrailConditionWithUser[];
@@ -29,7 +43,12 @@ interface UseTrailConditionsReturn {
   isLoading: boolean;
   error: string | null;
   submitReport: (data: ConditionReportData) => Promise<void>;
-  upvote: (conditionId: string) => Promise<void>;
+  upvote: (conditionId: string) => void;
+  /** IDs der Berichte, für die die eigene Stimme schon gezählt ist */
+  votedIds: ReadonlySet<string>;
+  /** Bericht, dessen Stimme gerade gesendet wird */
+  upvotingId: string | null;
+  userId: string | undefined;
   hasUserReported: boolean;
   refreshConditions: () => void;
 }
@@ -86,7 +105,28 @@ export function useTrailConditions(routeId: string): UseTrailConditionsReturn {
     enabled: !!routeId,
   });
 
-  const conditions = conditionsQuery.data ?? [];
+  const conditions = useMemo(() => conditionsQuery.data ?? [], [conditionsQuery.data]);
+  const conditionIds = useMemo(() => conditions.map((c) => c.id), [conditions]);
+
+  // ─── Own votes query ─────────────────────────────────────
+  // Key liegt unter trailConditions(routeId), damit dieselbe Invalidierung
+  // Berichte und Stimmen neu lädt.
+  const votesQuery = useQuery({
+    queryKey: [...queryKeys.trailConditions(routeId), 'votes', userId, conditionIds],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error: fetchError } = await supabase
+        .from('trail_condition_votes')
+        .select('condition_id')
+        .eq('user_id', userId ?? '')
+        .in('condition_id', conditionIds);
+
+      if (fetchError) throw fetchError;
+      return (data ?? []).map((row: { condition_id: string }) => row.condition_id);
+    },
+    enabled: !!userId && conditionIds.length > 0,
+  });
+
+  const votedIds = useMemo(() => new Set(votesQuery.data ?? []), [votesQuery.data]);
   const isLoading = conditionsQuery.isLoading;
   const error = conditionsQuery.error instanceof Error ? conditionsQuery.error.message : null;
 
@@ -193,33 +233,28 @@ export function useTrailConditions(routeId: string): UseTrailConditionsReturn {
   // ─── Upvote mutation ─────────────────────────────────────
   const upvoteMutation = useMutation({
     mutationFn: async (conditionId: string) => {
+      // Login, Doppelstimmen und eigene Berichte prüft die Datenbank (022).
       const { error: rpcError } = await supabase.rpc(
         'upvote_trail_condition',
         { p_condition_id: conditionId },
       );
 
-      if (rpcError) {
-        // Fallback: manual increment
-        const target = conditions.find((c) => c.id === conditionId);
-        if (!target) return;
-
-        const { error: updateError } = await supabase
-          .from('trail_conditions')
-          .update({ helpfulness_score: target.helpfulness_score + 1 })
-          .eq('id', conditionId);
-
-        if (updateError) throw updateError;
-      }
+      if (rpcError) throw rpcError;
     },
-    onSuccess: () => {
+    onError: () => {
+      showErrorToast('Stimme konnte nicht gezählt werden.');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.trailConditions(routeId) });
     },
   });
 
   const upvote = useCallback(
-    (conditionId: string) => upvoteMutation.mutateAsync(conditionId),
+    (conditionId: string) => upvoteMutation.mutate(conditionId),
     [upvoteMutation],
   );
+
+  const upvotingId = upvoteMutation.isPending ? upvoteMutation.variables ?? null : null;
 
   return {
     conditions,
@@ -229,6 +264,9 @@ export function useTrailConditions(routeId: string): UseTrailConditionsReturn {
     error,
     submitReport,
     upvote,
+    votedIds,
+    upvotingId,
+    userId,
     hasUserReported,
     refreshConditions,
   };
