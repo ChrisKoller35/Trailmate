@@ -4,6 +4,7 @@ import {
   calculateElevation,
   calculateAvgSpeed,
   applyTrailingDriftCorrection,
+  calculateAutoPauseSeconds,
 } from '../lib/trackingCalculations';
 import type { TrackPoint } from '../types';
 
@@ -215,5 +216,86 @@ describe('applyTrailingDriftCorrection', () => {
     ];
     const result = applyTrailingDriftCorrection(points);
     expect(result.length).toBe(3);
+  });
+});
+
+// ─── calculateAutoPauseSeconds ───────────────────────────────────────────────
+
+describe('calculateAutoPauseSeconds', () => {
+  const T0 = 1_700_000_000_000;
+  const STEP_DEG = 0.00011; // ≈ 12 m nach Norden
+
+  // Gehen im 10-s-Takt, dann Stillstand am selben Ort, dann weiter.
+  function walkWithStop(stopSeconds: number): TrackPoint[] {
+    const points: TrackPoint[] = [];
+    let t = T0;
+    let lat = 46.8;
+    for (let i = 0; i < 5; i++) {
+      points.push(makePoint({ latitude: lat, longitude: 8.2, timestamp: t }));
+      lat += STEP_DEG;
+      t += 10_000;
+    }
+    t += stopSeconds * 1000 - 10_000;
+    lat -= STEP_DEG;
+    for (let i = 0; i < 5; i++) {
+      points.push(makePoint({ latitude: lat, longitude: 8.2, timestamp: t }));
+      lat += STEP_DEG;
+      t += 10_000;
+    }
+    return points;
+  }
+
+  it('counts a 3-minute stop between 10-s points as 180 s pause', () => {
+    expect(calculateAutoPauseSeconds(walkWithStop(180))).toBeCloseTo(180);
+  });
+
+  it('does not count slow climbing (10 m in 50 s) as pause', () => {
+    const points = [0, 1, 2, 3].map((i) =>
+      makePoint({ latitude: 46.8 + i * 0.00009, longitude: 8.2, timestamp: T0 + i * 50_000 })
+    );
+    expect(calculateAutoPauseSeconds(points)).toBe(0);
+  });
+
+  it('does not count a slow but moving segment (20 m in 60 s)', () => {
+    const points = [
+      makePoint({ latitude: 46.8, longitude: 8.2, timestamp: T0 }),
+      makePoint({ latitude: 46.8 + 0.00018, longitude: 8.2, timestamp: T0 + 60_000 }),
+    ];
+    expect(calculateAutoPauseSeconds(points)).toBe(0);
+  });
+
+  it('does not double-count a stop that lies fully within a manual pause', () => {
+    const points = walkWithStop(180);
+    const stopStart = points[4].timestamp;
+    const stopEnd = points[5].timestamp;
+    expect(
+      calculateAutoPauseSeconds(points, [{ start: stopStart - 1000, end: stopEnd + 1000 }])
+    ).toBe(0);
+  });
+
+  it('subtracts only the overlapping part of a manual pause', () => {
+    const points = walkWithStop(180);
+    const stopStart = points[4].timestamp;
+    expect(
+      calculateAutoPauseSeconds(points, [{ start: stopStart, end: stopStart + 60_000 }])
+    ).toBeCloseTo(120);
+  });
+
+  it('treats an open manual pause as lasting until the last point', () => {
+    const points = walkWithStop(180);
+    expect(calculateAutoPauseSeconds(points, [{ start: points[4].timestamp, end: null }])).toBe(0);
+  });
+
+  it('skips segments where time does not increase', () => {
+    const points = [
+      makePoint({ latitude: 46.8, longitude: 8.2, timestamp: T0 + 120_000 }),
+      makePoint({ latitude: 46.8, longitude: 8.2, timestamp: T0 }),
+    ];
+    expect(calculateAutoPauseSeconds(points)).toBe(0);
+  });
+
+  it('returns 0 for no or a single point', () => {
+    expect(calculateAutoPauseSeconds([])).toBe(0);
+    expect(calculateAutoPauseSeconds([makePoint({ latitude: 46.8, longitude: 8.2 })])).toBe(0);
   });
 });
