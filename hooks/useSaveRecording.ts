@@ -26,7 +26,12 @@ export interface SaveRecordingInput {
   movingSeconds: number;
   startedAt: number | null;
   trackPoints: TrackPoint[];
+  // Geplante Route (recordings.route_id), null bei freier Aufzeichnung
+  routeId?: string | null;
 }
+
+// Fremdschlüssel verletzt – hier: die Route wurde inzwischen gelöscht
+const FOREIGN_KEY_VIOLATION = '23503';
 
 export function useSaveRecording() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -37,34 +42,39 @@ export function useSaveRecording() {
       if (!userId) throw new Error('not authenticated');
       const { stats, trackPoints } = input;
 
-      const { data, error } = await supabase
-        .from('recordings')
-        .insert({
-          user_id: userId,
-          title: input.title.trim() || 'Unbenannte Tour',
-          distance_m: Math.round(stats.distance),
-          elevation_gain_m: Math.round(stats.elevationGain),
-          elevation_loss_m: Math.round(stats.elevationLoss),
-          duration_seconds: Math.round(stats.duration),
-          moving_time_seconds: Math.round(input.movingSeconds),
-          avg_speed_kmh: Math.round(stats.avgSpeed * 10) / 10,
-          steps: stats.steps > 0 ? stats.steps : null,
-          started_at: input.startedAt ? new Date(input.startedAt).toISOString() : null,
-          finished_at: new Date().toISOString(),
-          is_hidden: false,
-          // Nur Länge und Breite: recordings.geom ist eine 2D-Spalte
-          // (geometry(LineString, 4326)). Mit Höhe als dritter Zahl lehnt die
-          // Datenbank die ganze Zeile ab («Geometry has Z dimension but column
-          // does not»); die Höhenmeter stehen in eigenen Spalten.
-          geom: trackPoints.length >= 2
-            ? {
-                type: 'LineString',
-                coordinates: trackPoints.map((p) => [p.longitude, p.latitude]),
-              }
-            : null,
-        })
-        .select('id')
-        .single();
+      const row = {
+        user_id: userId,
+        route_id: input.routeId ?? null,
+        title: input.title.trim() || 'Unbenannte Tour',
+        distance_m: Math.round(stats.distance),
+        elevation_gain_m: Math.round(stats.elevationGain),
+        elevation_loss_m: Math.round(stats.elevationLoss),
+        duration_seconds: Math.round(stats.duration),
+        moving_time_seconds: Math.round(input.movingSeconds),
+        avg_speed_kmh: Math.round(stats.avgSpeed * 10) / 10,
+        steps: stats.steps > 0 ? stats.steps : null,
+        started_at: input.startedAt ? new Date(input.startedAt).toISOString() : null,
+        finished_at: new Date().toISOString(),
+        is_hidden: false,
+        // Nur Länge und Breite: recordings.geom ist eine 2D-Spalte
+        // (geometry(LineString, 4326)). Mit Höhe als dritter Zahl lehnt die
+        // Datenbank die ganze Zeile ab («Geometry has Z dimension but column
+        // does not»); die Höhenmeter stehen in eigenen Spalten.
+        geom: trackPoints.length >= 2
+          ? {
+              type: 'LineString',
+              coordinates: trackPoints.map((p) => [p.longitude, p.latitude]),
+            }
+          : null,
+      };
+      const insertRow = (values: typeof row) =>
+        supabase.from('recordings').insert(values).select('id').single();
+
+      let { data, error } = await insertRow(row);
+      if (error?.code === FOREIGN_KEY_VIOLATION && row.route_id) {
+        // Route gelöscht: die Tour trotzdem speichern, nur ohne Zuordnung
+        ({ data, error } = await insertRow({ ...row, route_id: null }));
+      }
 
       if (error) throw error;
       const recordingId = (data as { id?: string } | null)?.id;
