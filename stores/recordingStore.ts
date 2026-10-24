@@ -4,7 +4,9 @@ import {
   calculateTotalDistance,
   calculateElevation,
   calculateAvgSpeed,
+  calculateAutoPauseSeconds,
 } from '../lib/trackingCalculations';
+import type { ManualPause } from '../lib/trackingCalculations';
 import {
   setActiveRecordingId,
   loadTrackPoints,
@@ -21,6 +23,7 @@ interface RecordingState {
   startedAt: number | null;
   pausedAt: number | null;
   totalPauseDuration: number;
+  manualPauses: ManualPause[];
   manualPauseActive: boolean;
   currentStats: {
     distance: number;
@@ -60,6 +63,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   startedAt: null,
   pausedAt: null,
   totalPauseDuration: 0,
+  manualPauses: [],
   manualPauseActive: false,
   currentStats: { ...initialStats },
 
@@ -75,25 +79,31 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       startedAt: Date.now(),
       pausedAt: null,
       totalPauseDuration: 0,
+      manualPauses: [],
       manualPauseActive: false,
       currentStats: { ...initialStats },
     });
   },
 
-  pauseRecording: () =>
-    set({
+  pauseRecording: () => {
+    const now = Date.now();
+    set((state) => ({
       status: 'paused',
-      pausedAt: Date.now(),
+      pausedAt: now,
+      manualPauses: [...state.manualPauses, { start: now, end: null }],
       manualPauseActive: true,
-    }),
+    }));
+  },
 
   resumeRecording: () => {
-    const { pausedAt, totalPauseDuration } = get();
-    const elapsed = pausedAt ? Date.now() - pausedAt : 0;
+    const { pausedAt, totalPauseDuration, manualPauses } = get();
+    const now = Date.now();
+    const elapsed = pausedAt ? now - pausedAt : 0;
     set({
       status: 'recording',
       pausedAt: null,
       totalPauseDuration: totalPauseDuration + elapsed,
+      manualPauses: manualPauses.map((p) => (p.end === null ? { ...p, end: now } : p)),
       manualPauseActive: false,
     });
   },
@@ -106,7 +116,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   },
 
   updateStats: () => {
-    const { trackPoints, startedAt, totalPauseDuration } = get();
+    const { trackPoints, startedAt, totalPauseDuration, pausedAt, manualPauses } = get();
     if (trackPoints.length === 0 || !startedAt) return;
 
     const distance = calculateTotalDistance(trackPoints);
@@ -114,7 +124,10 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
     const now = Date.now();
     const totalDurationS = (now - startedAt) / 1000;
-    const movingTimeS = Math.max(0, totalDurationS - totalPauseDuration / 1000);
+    const openPauseMs = pausedAt ? now - pausedAt : 0;
+    const manualPauseS = (totalPauseDuration + openPauseMs) / 1000;
+    const autoPauseS = calculateAutoPauseSeconds(trackPoints, manualPauses);
+    const movingTimeS = Math.max(0, totalDurationS - manualPauseS - autoPauseS);
     const avgSpeed = calculateAvgSpeed(distance, movingTimeS);
 
     set((state) => ({
@@ -148,6 +161,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       startedAt: null,
       pausedAt: null,
       totalPauseDuration: 0,
+      manualPauses: [],
       manualPauseActive: false,
       currentStats: { ...initialStats },
     });
@@ -164,7 +178,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const startedAt = points[0].timestamp;
     const lastTimestamp = points[points.length - 1].timestamp;
     const totalDurationS = (lastTimestamp - startedAt) / 1000;
-    const avgSpeed = calculateAvgSpeed(distance, totalDurationS);
+    const movingTimeS = Math.max(0, totalDurationS - calculateAutoPauseSeconds(points));
+    const avgSpeed = calculateAvgSpeed(distance, movingTimeS);
 
     set({
       status: 'stopped',
@@ -173,13 +188,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       startedAt,
       pausedAt: null,
       totalPauseDuration: 0,
+      manualPauses: [],
       manualPauseActive: false,
       currentStats: {
         distance,
         elevationGain: gain,
         elevationLoss: loss,
         duration: totalDurationS,
-        movingTime: totalDurationS,
+        movingTime: movingTimeS,
         avgSpeed,
         steps: 0,
       },
