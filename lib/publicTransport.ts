@@ -30,6 +30,71 @@ export interface TransportStation {
   distance?: number;
 }
 
+// ─── Errors ────────────────────────────────────────────────
+
+export class TransportApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'TransportApiError';
+    this.status = status;
+  }
+}
+
+/** German, user-facing message for any error from the transport lookup. */
+export function describeTransportError(err: unknown, isOnline?: boolean): string {
+  // fetch throws a TypeError without network ("Network request failed" / "Failed to fetch")
+  if (isOnline === false || err instanceof TypeError) {
+    return 'Keine Internetverbindung. ÖV-Verbindungen brauchen Internet.';
+  }
+  if (err instanceof TransportApiError) {
+    if (err.status === 429) {
+      return 'Der Fahrplandienst ist gerade überlastet. Bitte versuche es in ein paar Minuten nochmals.';
+    }
+    return 'Der Fahrplandienst antwortet gerade nicht. Bitte versuche es später nochmals.';
+  }
+  return 'ÖV-Verbindungen konnten nicht geladen werden.';
+}
+
+// ─── Dates (local time, "YYYY-MM-DD") ──────────────────────
+
+export function toDateString(d: Date): string {
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Parses "YYYY-MM-DD" as a local calendar day (not UTC midnight). */
+function parseDateString(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const date = parseDateString(dateStr);
+  date.setDate(date.getDate() + days);
+  return toDateString(date);
+}
+
+/** Default travel day: tomorrow morning. */
+export function defaultTravelDate(now: Date = new Date()): string {
+  return addDays(toDateString(now), 1);
+}
+
+export function formatTravelDateLabel(dateStr: string, now: Date = new Date()): string {
+  const today = toDateString(now);
+  if (dateStr === today) return 'Heute';
+  if (dateStr === addDays(today, 1)) return 'Morgen';
+
+  const date = parseDateString(dateStr);
+  const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const d = date.getDate().toString().padStart(2, '0');
+  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${weekdays[date.getDay()]} ${d}.${m}.`;
+}
+
 // ─── Station Lookup ────────────────────────────────────────
 
 export async function findNearestStation(
@@ -41,7 +106,7 @@ export async function findNearestStation(
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Station lookup failed (${response.status})`);
+    throw new TransportApiError(`Station lookup failed (${response.status})`, response.status);
   }
 
   const data = await response.json();
@@ -83,7 +148,7 @@ export async function getConnections(
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Connection lookup failed (${response.status})`);
+    throw new TransportApiError(`Connection lookup failed (${response.status})`, response.status);
   }
 
   const data = await response.json();
