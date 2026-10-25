@@ -1,7 +1,8 @@
 // hooks/useSaveRecording.ts
 // Speichert die aktuelle Aufzeichnung als `recordings`-Zeile, prüft danach
 // Abzeichen und Challenges und setzt den Aufzeichnungs-Speicher zurück.
-// Gibt die ID der neuen Aufzeichnung zurück (null, wenn es nicht geklappt hat).
+// Gibt die ID der neuen Aufzeichnung und die neu verdienten Abzeichen zurück
+// (null, wenn es nicht geklappt hat).
 // `isSaving` bleibt bis zum Ende des ganzen Ablaufs gesetzt, damit nichts
 // doppelt gespeichert wird.
 
@@ -11,7 +12,7 @@ import { showErrorToast, showSuccessToast } from '../lib/toast';
 import { checkAndAwardBadges, updateChallengeProgress } from '../lib/badgeEngine';
 import { useAuthStore } from '../stores/authStore';
 import { useRecordingStore } from '../stores/recordingStore';
-import type { TrackPoint } from '../types';
+import type { Badge, TrackPoint } from '../types';
 
 export interface SaveRecordingInput {
   title: string;
@@ -30,6 +31,23 @@ export interface SaveRecordingInput {
   routeId?: string | null;
 }
 
+export interface SaveRecordingResult {
+  recordingId: string;
+  newBadges: Badge[];
+}
+
+// Details der neuen Abzeichen in der Reihenfolge der IDs; wirft bei Fehlern.
+async function loadBadges(ids: string[]): Promise<Badge[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('badges')
+    .select('id, name, description, icon_url, category, rarity')
+    .in('id', ids);
+  if (error) throw error;
+  const byId = new Map(((data ?? []) as Badge[]).map((b) => [b.id, b]));
+  return ids.map((id) => byId.get(id)).filter((b): b is Badge => !!b);
+}
+
 // Fremdschlüssel verletzt – hier: die Route wurde inzwischen gelöscht
 const FOREIGN_KEY_VIOLATION = '23503';
 
@@ -38,7 +56,7 @@ export function useSaveRecording() {
   const reset = useRecordingStore((s) => s.reset);
 
   const mutation = useMutation({
-    mutationFn: async (input: SaveRecordingInput): Promise<string> => {
+    mutationFn: async (input: SaveRecordingInput): Promise<SaveRecordingResult> => {
       if (!userId) throw new Error('not authenticated');
       const { stats, trackPoints } = input;
 
@@ -82,30 +100,36 @@ export function useSaveRecording() {
 
       // Abzeichen und Challenges prüfen – ein Fehler hier ändert nichts daran,
       // dass die Tour gespeichert ist.
-      let newBadges: string[] = [];
+      let newBadgeIds: string[] = [];
       try {
-        newBadges = await checkAndAwardBadges(userId);
+        newBadgeIds = await checkAndAwardBadges(userId);
         await updateChallengeProgress(userId, stats);
       } catch {
         // Badge check failed silently - tour is still saved
       }
 
-      if (newBadges.length > 0) {
+      // Details für das Abzeichen-Modal; fehlen sie, nennt der Toast die Anzahl.
+      const newBadges = await loadBadges(newBadgeIds).catch((): Badge[] => []);
+
+      const count = newBadgeIds.length;
+      if (count > 0 && newBadges.length === 0) {
         showSuccessToast(
-          `🏆 Tour gespeichert! Du hast ${newBadges.length} neue${newBadges.length > 1 ? ' Abzeichen' : 's Abzeichen'} verdient!`,
+          `🏆 Tour gespeichert! Du hast ${count} neue${count > 1 ? ' Abzeichen' : 's Abzeichen'} verdient!`,
         );
       } else {
         showSuccessToast('Deine Tour wurde erfolgreich gespeichert.');
       }
       reset();
-      return recordingId;
+      return { recordingId, newBadges };
     },
     onError: (err) => {
       console.error('[saveRecording] failed:', err);
     },
   });
 
-  const saveRecording = async (input: SaveRecordingInput): Promise<string | null> => {
+  const saveRecording = async (
+    input: SaveRecordingInput,
+  ): Promise<SaveRecordingResult | null> => {
     if (!userId) {
       showErrorToast('Du musst angemeldet sein, um eine Tour zu speichern.');
       return null;
