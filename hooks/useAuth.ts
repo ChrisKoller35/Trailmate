@@ -41,15 +41,17 @@ export function useAuth() {
     return { data, error };
   }
 
+  // RPC aus Migration 023: sieht auch private Konten, ohne Gross-/Kleinschreibung.
+  // Fehlt die Funktion (Migration online noch nicht da) oder scheitert der
+  // Aufruf, gilt der Name als frei; den 23505 beim Speichern fängt
+  // home-region.tsx ab.
   async function checkUsername(username: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', username)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('is_username_available', {
+        p_username: username,
+      });
       if (error) return true;
-      return data === null;
+      return data === true;
     } catch {
       return true;
     }

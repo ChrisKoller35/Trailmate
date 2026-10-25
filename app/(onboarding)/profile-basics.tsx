@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,11 +18,14 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import ProgressIndicator from '../../components/onboarding/ProgressIndicator';
 import { useOnboardingStore } from '../../stores/onboardingStore';
+import { useAuth } from '../../hooks/useAuth';
+import { normalizeUsername, suggestUsername, validateUsername } from '../../lib/username';
 
 export default function ProfileBasicsScreen() {
   const router = useRouter();
   const {
     displayName,
+    username,
     avatarUri,
     setDisplayName,
     setUsername,
@@ -36,17 +39,45 @@ export default function ProfileBasicsScreen() {
     setCurrentStep(2);
   }, [setCurrentStep]);
 
-  // Auto-generate username from display name
+  // Wer schon einen Namen hat (z. B. zurück aus Schritt 4), behält ihn.
+  const [usernameEdited, setUsernameEdited] = useState(() => username !== '');
+  // Zuletzt geprüfter Name und Ergebnis; weicht er ab, läuft die Prüfung noch.
+  const [checked, setChecked] = useState<{ name: string; free: boolean } | null>(null);
+
+  // useAuth liefert pro Render eine neue Funktion; checkUsername hängt nur
+  // von supabase ab, darum genügt die erste.
+  const checkUsernameRef = useRef(useAuth().checkUsername);
+
+  // Vorschlag aus dem Anzeigenamen, bis die Person das Feld selbst ändert.
   useEffect(() => {
-    if (!displayName.trim()) return;
-    const base = displayName
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-      .slice(0, 20);
-    const suffix = Math.floor(1000 + Math.random() * 9000);
-    setUsername(`${base}_${suffix}`);
-  }, [displayName, setUsername]);
+    if (usernameEdited) return;
+    setUsername(displayName.trim() ? suggestUsername(displayName) : '');
+  }, [displayName, usernameEdited, setUsername]);
+
+  const formatError = validateUsername(username);
+  useEffect(() => {
+    if (formatError) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const free = await checkUsernameRef.current(username);
+      if (!cancelled) setChecked({ name: username, free });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username, formatError]);
+
+  const isChecking = !formatError && checked?.name !== username;
+  const isTaken = !formatError && checked?.name === username && !checked.free;
+  const usernameError = username
+    ? formatError ?? (isTaken ? 'Benutzername bereits vergeben' : '')
+    : '';
+
+  const handleUsernameChange = (text: string) => {
+    setUsernameEdited(true);
+    setUsername(normalizeUsername(text));
+  };
 
   const pickAvatar = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -66,6 +97,7 @@ export default function ProfileBasicsScreen() {
       return;
     }
     setDisplayNameError('');
+    if (formatError || isChecking || isTaken) return;
     router.push('/(onboarding)/hiking-level');
   };
 
@@ -107,8 +139,23 @@ export default function ProfileBasicsScreen() {
             error={displayNameError}
           />
 
+          <Input
+            label="Benutzername"
+            placeholder="dein_name"
+            value={username}
+            onChangeText={handleUsernameChange}
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={usernameError}
+          />
+
           <View style={styles.buttons}>
-            <Button title="Weiter" onPress={handleNext} />
+            <Button
+              title="Weiter"
+              onPress={handleNext}
+              loading={isChecking}
+              disabled={!!usernameError}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
