@@ -38,6 +38,8 @@ import { chooseAction, confirmAction } from '../../lib/dialog';
 import { showErrorToast, showInfoToast } from '../../lib/toast';
 import { normalizeRouteId } from '../../lib/routeId';
 import { totalSteps } from '../../lib/stepCounter';
+import { lineBounds } from '../../lib/geoBounds';
+import { useRouteGeometry } from '../../hooks/useRouteGeometry';
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -63,6 +65,7 @@ export default function RecordScreen() {
   const totalPauseDuration = useRecordingStore((s) => s.totalPauseDuration);
   const pausedAt = useRecordingStore((s) => s.pausedAt);
   const currentStats = useRecordingStore((s) => s.currentStats);
+  const recordingRouteId = useRecordingStore((s) => s.routeId);
 
   const startRecording = useRecordingStore((s) => s.startRecording);
   const pauseRecording = useRecordingStore((s) => s.pauseRecording);
@@ -152,6 +155,20 @@ export default function RecordScreen() {
     };
   }, [trackPoints]);
 
+  // Geplante Route: vor dem Start aus dem Parameter, danach aus dem Store
+  const plannedRouteId = status === 'idle' ? normalizeRouteId(routeId) : recordingRouteId;
+  const plannedRoute = useRouteGeometry(plannedRouteId);
+  const fittedRouteRef = useRef<typeof plannedRoute>(null);
+
+  // Solange keine Aufnahme läuft, einmal auf die geplante Route ausrichten
+  useEffect(() => {
+    if (status !== 'idle' || !plannedRoute || fittedRouteRef.current === plannedRoute) return;
+    const bounds = lineBounds(plannedRoute.geometry.coordinates);
+    if (!bounds || !cameraRef.current) return;
+    fittedRouteRef.current = plannedRoute;
+    cameraRef.current.fitBounds(bounds.ne, bounds.sw, 40, 500);
+  }, [plannedRoute, status]);
+
   // Follow user when recording
   useEffect(() => {
     if (
@@ -226,7 +243,7 @@ export default function RecordScreen() {
       return (
         <TrailMap
           style={styles.map}
-          routeGeoJSON={trackGeoJSON}
+          routeGeoJSON={trackGeoJSON ?? plannedRoute}
         />
       );
     }
@@ -245,6 +262,22 @@ export default function RecordScreen() {
           }}
         />
         <UserLocation visible />
+
+        {/* Vor der Aufzeichnung im JSX, damit die Linie darunter liegt */}
+        {plannedRoute && (
+          <ShapeSource id="planned-route" shape={plannedRoute}>
+            <LineLayer
+              id="planned-route-line"
+              style={{
+                lineColor: Colors.primary,
+                lineWidth: 4,
+                lineDasharray: [2, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        )}
 
         {trackGeoJSON && (
           <ShapeSource id="recording-track" shape={trackGeoJSON}>

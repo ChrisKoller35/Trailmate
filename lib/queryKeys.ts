@@ -38,6 +38,7 @@ export const queryKeys = {
     responses: (eventId: string) => ['events', 'responses', eventId] as const,
   },
   trailConditions: (routeId: string) => ['trailConditions', routeId] as const,
+  routeGeometry: (routeId: string) => ['routeGeometry', routeId] as const,
   weather: (lat: number, lng: number) => ['weather', lat, lng] as const,
   transport: {
     stations: (startLat: number, startLng: number, endLat?: number, endLng?: number) =>
