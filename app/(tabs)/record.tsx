@@ -327,16 +327,23 @@ export default function RecordScreen() {
             <Text style={styles.idleSubtitle}>
               Zeichne deine Wanderung auf und verfolge deine Statistiken
             </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.startButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleStart}
-            >
-              <Ionicons name="play" size={24} color={Colors.textOnPrimary} />
-              <Text style={styles.startButtonText}>Tour starten</Text>
-            </Pressable>
+            {/* Im Browser gibt es kein Hintergrund-GPS (expo-task-manager) */}
+            {Platform.OS === 'web' ? (
+              <Text style={styles.webHint}>
+                Aufzeichnen geht nur in der TrailMate-App auf dem Handy.
+              </Text>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.startButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleStart}
+              >
+                <Ionicons name="play" size={24} color={Colors.textOnPrimary} />
+                <Text style={styles.startButtonText}>Tour starten</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -540,6 +547,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textOnPrimary,
+  },
+  webHint: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+    textAlign: 'center',
   },
   buttonPressed: {
     opacity: 0.85,
