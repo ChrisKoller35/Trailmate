@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { showErrorToast, showSuccessToast } from '../../lib/toast';
+import { showErrorToast } from '../../lib/toast';
 import { Colors } from '../../constants';
 import { TrailMap } from '../../components/map/TrailMap';
 import { RouteInfoPanel } from '../../components/map/RouteInfoPanel';
@@ -17,9 +17,9 @@ import { RouteFilterSheet } from '../../components/map/RouteFilterSheet';
 import { ElevationProfile } from '../../components/map/ElevationProfile';
 import { PlaceSearchBar } from '../../components/map/PlaceSearchBar';
 import { placeToCoordinate, type Place } from '../../lib/placeSearch';
-import { useRouting } from '../../hooks/useRouting';
+import { useRouting, type RouteResult } from '../../hooks/useRouting';
 import { useRouteFilter } from '../../hooks/useRouteFilter';
-import { useRouteBookmarks } from '../../hooks/useRouteBookmarks';
+import { useSaveRoute } from '../../hooks/useSaveRoute';
 
 type PlanningMode = 'idle' | 'set-start' | 'set-end' | 'set-waypoint';
 
@@ -38,7 +38,9 @@ export default function MapScreen() {
 
   const { calculateRoute, routeResult, isCalculating, error, clearRoute, loadDemoRoute } = useRouting();
   const { sacScales, fetchFilteredRoutes } = useRouteFilter();
-  useRouteBookmarks();
+  const { saveRoute, isSaving } = useSaveRoute();
+  // Zuletzt gespeichertes Ergebnis; eine neue oder gelöschte Route ist wieder speicherbar
+  const [savedResult, setSavedResult] = useState<RouteResult | null>(null);
 
   const handleMapPress = useCallback(
     (coordinate: [number, number]) => {
@@ -98,11 +100,11 @@ export default function MapScreen() {
     setFocusPoint(null);
   }, []);
 
-  const handleSaveRoute = useCallback(() => {
-    if (routeResult) {
-      showSuccessToast('Route wurde zur Merkliste hinzugefügt.');
-    }
-  }, [routeResult]);
+  const handleSaveRoute = useCallback(async () => {
+    if (!routeResult || savedResult === routeResult) return;
+    const routeId = await saveRoute(routeResult);
+    if (routeId) setSavedResult(routeResult);
+  }, [routeResult, savedResult, saveRoute]);
 
   return (
     <View style={styles.container}>
@@ -271,15 +273,17 @@ export default function MapScreen() {
             <Ionicons name="alert-circle" size={18} color={Colors.error} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
-          <Pressable style={styles.demoBtnInline} onPress={loadDemoRoute}>
-            <Ionicons name="map-outline" size={16} color={Colors.primary} />
-            <Text style={styles.demoBtnInlineText}>Demo-Route laden</Text>
-          </Pressable>
+          {__DEV__ && (
+            <Pressable style={styles.demoBtnInline} onPress={loadDemoRoute}>
+              <Ionicons name="map-outline" size={16} color={Colors.primary} />
+              <Text style={styles.demoBtnInlineText}>Demo-Route laden</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
-      {/* Demo Route Button (shown when idle with no route) */}
-      {!routeResult && !error && planningMode === 'idle' && (
+      {/* Demo Route Button (nur im Entwicklungsmodus, wenn keine Route da ist) */}
+      {__DEV__ && !routeResult && !error && planningMode === 'idle' && (
         <View style={styles.demoBar}>
           <Pressable style={styles.demoBtn} onPress={loadDemoRoute}>
             <Ionicons name="flask-outline" size={18} color={Colors.surface} />
@@ -301,6 +305,8 @@ export default function MapScreen() {
               max_elevation_m: routeResult.max_elevation_m,
             }}
             onSave={handleSaveRoute}
+            isSaving={isSaving}
+            isSaved={savedResult === routeResult}
             onShowElevation={() => setShowElevation(true)}
           />
         </View>
