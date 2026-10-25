@@ -70,7 +70,9 @@ export default function ProfileBasicsScreen() {
 
   const isChecking = !formatError && checked?.name !== username;
   const isTaken = !formatError && checked?.name === username && !checked.free;
-  const usernameError = username
+  // Leeres Feld zeigt erst einen Hinweis, wenn die Person es selbst geleert
+  // hat; sonst bliebe «Weiter» ohne Erklärung wirkungslos.
+  const usernameError = username || usernameEdited
     ? formatError ?? (isTaken ? 'Benutzername bereits vergeben' : '')
     : '';
 
