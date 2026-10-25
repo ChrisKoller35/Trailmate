@@ -33,7 +33,7 @@ export function suggestUsername(
     .replace(/ü/g, 'ue')
     .replace(/ß/g, 'ss')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '') // Akzente (kombinierende Zeichen)
     .replace(/[\s-]+/g, '_')
     .replace(/[^a-z0-9_]/g, '')
     .replace(/_+/g, '_')
