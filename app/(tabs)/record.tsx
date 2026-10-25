@@ -37,6 +37,7 @@ import { SWISSTOPO_STYLE_JSON } from '../../lib/mapStyle';
 import { chooseAction, confirmAction } from '../../lib/dialog';
 import { showErrorToast, showInfoToast } from '../../lib/toast';
 import { normalizeRouteId } from '../../lib/routeId';
+import { totalSteps } from '../../lib/stepCounter';
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -101,11 +102,13 @@ export default function RecordScreen() {
   useEffect(() => {
     if (status !== 'recording') return;
     let subscription: { remove: () => void } | null = null;
-    const setSteps = useRecordingStore.getState().setSteps;
+    const { setSteps, currentStats } = useRecordingStore.getState();
+    // Das Abo zählt ab 0; Schritte vor einer Pause bleiben als Basis erhalten
+    const stepsBefore = currentStats.steps;
     Pedometer.isAvailableAsync().then((available) => {
       if (!available) return;
       subscription = Pedometer.watchStepCount((result) => {
-        setSteps(result.steps);
+        setSteps(totalSteps(stepsBefore, result.steps));
       });
     });
     return () => {
