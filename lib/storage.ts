@@ -1,13 +1,8 @@
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
+import { sanitizeImageForUpload, type UploadFile } from './imageSanitize';
 
 const R2_PUBLIC_URL = process.env.EXPO_PUBLIC_R2_PUBLIC_URL!;
-
-interface UploadFile {
-  uri: string;
-  name: string;
-  type: string;
-}
 
 interface UploadResult {
   path: string;
@@ -54,8 +49,9 @@ async function uploadFile(
 
 export async function uploadAvatar(
   userId: string,
-  file: UploadFile
+  original: UploadFile
 ): Promise<UploadResult> {
+  const file = await sanitizeImageForUpload(original);
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `avatars/${userId}/avatar_${Date.now()}.${ext}`;
   return uploadFile('media', path, file);
@@ -63,8 +59,9 @@ export async function uploadAvatar(
 
 export async function uploadCoverImage(
   userId: string,
-  file: UploadFile
+  original: UploadFile
 ): Promise<UploadResult> {
+  const file = await sanitizeImageForUpload(original);
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `covers/${userId}/cover_${Date.now()}.${ext}`;
   return uploadFile('media', path, file);
@@ -76,7 +73,7 @@ export async function uploadPostMedia(
 ): Promise<UploadResult[]> {
   const results: UploadResult[] = [];
   for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+    const file = await sanitizeImageForUpload(files[i]);
     const ext = file.name.split('.').pop() || 'jpg';
     const path = `posts/${postId}/${i}_${Date.now()}.${ext}`;
     const result = await uploadFile('media', path, file);
@@ -99,7 +96,7 @@ export async function uploadTrailConditionPhoto(
 ): Promise<UploadResult[]> {
   const results: UploadResult[] = [];
   for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+    const file = await sanitizeImageForUpload(files[i]);
     const ext = file.name.split('.').pop() || 'jpg';
     const path = `trail-conditions/${reportId}/${i}_${Date.now()}.${ext}`;
     const result = await uploadFile('media', path, file);
