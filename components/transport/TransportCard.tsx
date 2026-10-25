@@ -11,7 +11,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 import { usePublicTransport } from '../../hooks/usePublicTransport';
-import { formatDuration, formatTime } from '../../lib/publicTransport';
+import {
+  addDays,
+  formatDuration,
+  formatTime,
+  formatTravelDateLabel,
+} from '../../lib/publicTransport';
 import type { TransportConnection } from '../../lib/publicTransport';
 
 // ─── Props ─────────────────────────────────────────────────
@@ -58,29 +63,8 @@ export default function TransportCard({
     }
   };
 
-  // Date picker helpers
   const shiftDate = (days: number) => {
-    const current = new Date(selectedDate);
-    current.setDate(current.getDate() + days);
-    const year = current.getFullYear();
-    const month = (current.getMonth() + 1).toString().padStart(2, '0');
-    const day = current.getDate().toString().padStart(2, '0');
-    setSelectedDate(`${year}-${month}-${day}`);
-  };
-
-  const formatDateLabel = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) return 'Heute';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Morgen';
-
-    const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `${weekdays[date.getDay()]} ${d}.${m}.`;
+    setSelectedDate(addDays(selectedDate, days));
   };
 
   // Time adjustment
@@ -147,7 +131,7 @@ export default function TransportCard({
           <TouchableOpacity onPress={() => shiftDate(-1)} style={styles.arrowButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.dateText}>{formatDateLabel(selectedDate)}</Text>
+          <Text style={styles.dateText}>{formatTravelDateLabel(selectedDate)}</Text>
           <TouchableOpacity onPress={() => shiftDate(1)} style={styles.arrowButton}>
             <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
           </TouchableOpacity>
@@ -204,7 +188,17 @@ export default function TransportCard({
 
       {/* Error */}
       {error && !isLoading && (
-        <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={refreshConnections}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={16} color={Colors.primary} />
+            <Text style={styles.retryButtonText}>Nochmal versuchen</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Connections list */}
@@ -518,11 +512,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
   },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
   errorText: {
     fontSize: 14,
     color: Colors.error,
     textAlign: 'center',
-    paddingVertical: 12,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   emptyText: {
     fontSize: 14,
