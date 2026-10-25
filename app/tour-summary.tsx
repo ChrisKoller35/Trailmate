@@ -61,6 +61,7 @@ export default function TourSummaryScreen() {
   const trackPoints = useRecordingStore((s) => s.trackPoints);
   const currentStats = useRecordingStore((s) => s.currentStats);
   const startedAt = useRecordingStore((s) => s.startedAt);
+  const routeId = useRecordingStore((s) => s.routeId);
   const reset = useRecordingStore((s) => s.reset);
 
   const profile = useAuthStore((s) => s.profile);
@@ -96,11 +97,12 @@ export default function TourSummaryScreen() {
         movingSeconds,
         startedAt,
         trackPoints,
+        routeId,
       });
     } finally {
       savingRef.current = false;
     }
-  }, [saveRecording, title, currentStats, movingSeconds, startedAt, trackPoints]);
+  }, [saveRecording, title, currentStats, movingSeconds, startedAt, trackPoints, routeId]);
 
   const handleSave = useCallback(async () => {
     const recordingId = await saveOnce();

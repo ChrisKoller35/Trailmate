@@ -21,6 +21,8 @@ interface RecordedQuery {
 const mockRecorded: RecordedQuery[] = [];
 let mockRow: { id: string } | null = null;
 let mockError: { code: string; message: string } | null = null;
+// Fehler für die nächsten Inserts der Reihe nach; leer = mockError
+const mockErrorQueue: ({ code: string; message: string } | null)[] = [];
 let mockUserId: string | null = 'me';
 const mockReset = jest.fn();
 
@@ -30,7 +32,10 @@ function mockMakeBuilder(table: string) {
   const builder = {
     insert: (v: unknown) => { query.op = 'insert'; query.values = v; return builder; },
     select: (cols: string) => { query.selected = cols; return builder; },
-    single: () => Promise.resolve({ data: mockError ? null : mockRow, error: mockError }),
+    single: () => {
+      const error = mockErrorQueue.length > 0 ? mockErrorQueue.shift() ?? null : mockError;
+      return Promise.resolve({ data: error ? null : mockRow, error });
+    },
   };
   return builder;
 }
@@ -94,10 +99,13 @@ const input: SaveRecordingInput = {
   ],
 };
 
+const ROUTE_ID = '3f2b8c1e-5d4a-4e7b-9c0d-1a2b3c4d5e6f';
+
 beforeEach(() => {
   mockRecorded.length = 0;
   mockRow = { id: 'rec-1' };
   mockError = null;
+  mockErrorQueue.length = 0;
   mockUserId = 'me';
   jest.clearAllMocks();
   jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -114,6 +122,7 @@ describe('useSaveRecording', () => {
     expect(q.selected).toBe('id');
     expect(q.values).toMatchObject({
       user_id: 'me',
+      route_id: null,
       title: 'Pilatus Rundweg',
       distance_m: 12_437,
       elevation_gain_m: 850,
@@ -162,6 +171,49 @@ describe('useSaveRecording', () => {
     );
     expect(mockReset).not.toHaveBeenCalled();
     expect(checkAndAwardBadges).not.toHaveBeenCalled();
+  });
+
+  it('sends route_id when the recording belongs to a route', async () => {
+    await useSaveRecording().saveRecording({ ...input, routeId: ROUTE_ID });
+
+    expect(mockRecorded).toHaveLength(1);
+    expect(mockRecorded[0].values).toMatchObject({ route_id: ROUTE_ID });
+  });
+
+  it('retries once without route_id when the route was deleted (23503)', async () => {
+    mockErrorQueue.push({ code: '23503', message: 'foreign key violation' });
+
+    await expect(
+      useSaveRecording().saveRecording({ ...input, routeId: ROUTE_ID }),
+    ).resolves.toBe('rec-1');
+
+    expect(mockRecorded).toHaveLength(2);
+    expect(mockRecorded[0].values).toMatchObject({ route_id: ROUTE_ID });
+    expect(mockRecorded[1].op).toBe('insert');
+    expect(mockRecorded[1].values).toMatchObject({ route_id: null, title: 'Pilatus Rundweg' });
+    expect(mockReset).toHaveBeenCalledTimes(1);
+    expect(showErrorToast).not.toHaveBeenCalled();
+  });
+
+  it('does not retry on 23503 without a route', async () => {
+    mockError = { code: '23503', message: 'foreign key violation' };
+
+    await expect(useSaveRecording().saveRecording(input)).resolves.toBeNull();
+
+    expect(mockRecorded).toHaveLength(1);
+    expect(mockRecorded[0].values).toMatchObject({ route_id: null });
+    expect(showErrorToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries only once when the second insert fails as well', async () => {
+    mockError = { code: '23503', message: 'foreign key violation' };
+
+    await expect(
+      useSaveRecording().saveRecording({ ...input, routeId: ROUTE_ID }),
+    ).resolves.toBeNull();
+
+    expect(mockRecorded).toHaveLength(2);
+    expect(mockReset).not.toHaveBeenCalled();
   });
 
   it('refuses to save without a signed-in user', async () => {
