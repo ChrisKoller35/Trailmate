@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Colors, SAC_SCALES } from '../../constants';
 import { useRouteFilter } from '../../hooks/useRouteFilter';
 import { RouteFilterSheet } from '../../components/map/RouteFilterSheet';
+import { hasActiveRouteFilters } from '../../lib/routeFilterQuery';
 import type { Route, SACScale } from '../../types';
 
 function formatDistance(meters: number | null): string {
@@ -94,7 +95,8 @@ function RouteCard({ route }: { route: Route }) {
 export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
-  const { routes, isLoading, fetchFilteredRoutes, sacScales } = useRouteFilter();
+  const { routes, isLoading, error, isDemo, fetchFilteredRoutes, ...filters } = useRouteFilter();
+  const filtersActive = hasActiveRouteFilters(filters);
 
   useEffect(() => {
     // Wait for Zustand persist middleware to hydrate filter state from AsyncStorage
@@ -102,7 +104,7 @@ export default function ExploreScreen() {
       fetchFilteredRoutes();
     }, 150);
     return () => clearTimeout(timer);
-  }, []);
+  }, [fetchFilteredRoutes]);
 
   const filteredRoutes = searchQuery.trim()
     ? routes.filter(
@@ -141,14 +143,14 @@ export default function ExploreScreen() {
         <Pressable
           style={[
             styles.filterButton,
-            sacScales.length > 0 && styles.filterButtonActive,
+            filtersActive && styles.filterButtonActive,
           ]}
           onPress={() => setShowFilter(true)}
         >
           <Ionicons
             name="options-outline"
             size={20}
-            color={sacScales.length > 0 ? Colors.surface : Colors.primary}
+            color={filtersActive ? Colors.surface : Colors.primary}
           />
         </Pressable>
       </View>
@@ -159,6 +161,14 @@ export default function ExploreScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Routen laden...</Text>
         </View>
+      ) : error ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="cloud-offline-outline" size={48} color={Colors.textLight} />
+          <Text style={styles.emptyText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={fetchFilteredRoutes}>
+            <Text style={styles.retryText}>Nochmal versuchen</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={filteredRoutes}
@@ -166,6 +176,11 @@ export default function ExploreScreen() {
           renderItem={({ item }) => <RouteCard route={item} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            isDemo ? (
+              <Text style={styles.demoHint}>Beispielrouten (nur in der Entwicklung)</Text>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="trail-sign-outline" size={48} color={Colors.textLight} />
@@ -345,5 +360,23 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     maxWidth: 260,
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+  retryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.surface,
+  },
+  demoHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.secondary,
+    textAlign: 'center',
   },
 });
