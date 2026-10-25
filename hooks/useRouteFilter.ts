@@ -3,46 +3,47 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import {
+  applyRouteFilters,
+  DEFAULT_ROUTE_FILTERS,
+  type RouteFilterValues,
+} from '../lib/routeFilterQuery';
 import { DEMO_ROUTES } from '../__fixtures__/demoData';
 import type { Route, SACScale } from '../types';
 
-interface RouteFilterState {
-  sacScales: SACScale[];
-  maxDistance: number; // km
-  maxElevation: number; // m
-  maxDuration: number; // hours
-  maxHeight: number; // m above sea level
+interface RouteFilterState extends RouteFilterValues {
   toggleSacScale: (scale: SACScale) => void;
+  setMinDistance: (val: number) => void;
   setMaxDistance: (val: number) => void;
+  setMinElevation: (val: number) => void;
   setMaxElevation: (val: number) => void;
+  setMinDuration: (val: number) => void;
   setMaxDuration: (val: number) => void;
   setMaxHeight: (val: number) => void;
   resetFilters: () => void;
 }
 
-const DEFAULTS = {
-  sacScales: [] as SACScale[],
-  maxDistance: 50,
-  maxElevation: 3000,
-  maxDuration: 12,
-  maxHeight: 4500,
-};
+const LOAD_ERROR = 'Routen konnten nicht geladen werden.';
 
 export const useRouteFilterStore = create<RouteFilterState>()(
   persist(
     (set) => ({
-      ...DEFAULTS,
+      // persist mischt flach: alte Stände ohne min*-Felder behalten die Standardwerte
+      ...DEFAULT_ROUTE_FILTERS,
       toggleSacScale: (scale) =>
         set((state) => ({
           sacScales: state.sacScales.includes(scale)
             ? state.sacScales.filter((s) => s !== scale)
             : [...state.sacScales, scale],
         })),
-      setMaxDistance: (maxDistance) => set({ maxDistance }),
-      setMaxElevation: (maxElevation) => set({ maxElevation }),
-      setMaxDuration: (maxDuration) => set({ maxDuration }),
+      setMinDistance: (v) => set((s) => ({ minDistance: Math.min(v, s.maxDistance) })),
+      setMaxDistance: (v) => set((s) => ({ maxDistance: Math.max(v, s.minDistance) })),
+      setMinElevation: (v) => set((s) => ({ minElevation: Math.min(v, s.maxElevation) })),
+      setMaxElevation: (v) => set((s) => ({ maxElevation: Math.max(v, s.minElevation) })),
+      setMinDuration: (v) => set((s) => ({ minDuration: Math.min(v, s.maxDuration) })),
+      setMaxDuration: (v) => set((s) => ({ maxDuration: Math.max(v, s.minDuration) })),
       setMaxHeight: (maxHeight) => set({ maxHeight }),
-      resetFilters: () => set(DEFAULTS),
+      resetFilters: () => set(DEFAULT_ROUTE_FILTERS),
     }),
     {
       name: 'trailmate-route-filters',
@@ -55,52 +56,43 @@ export function useRouteFilter() {
   const filters = useRouteFilterStore();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   const fetchFilteredRoutes = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      let query = supabase
-        .from('routes')
-        .select('*')
-        .eq('is_published', true)
-        .lte('distance_m', filters.maxDistance * 1000)
-        .lte('elevation_gain_m', filters.maxElevation)
-        .lte('estimated_duration_min', filters.maxDuration * 60);
+      // Aktuellen Stand direkt aus dem Store lesen, damit kein veralteter Filter greift
+      const base = supabase.from('routes').select('*');
+      const query = applyRouteFilters<typeof base>(base, useRouteFilterStore.getState())
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (filters.maxHeight < 4500) {
-        query = query.lte('max_elevation_m', filters.maxHeight);
-      }
+      const { data, error: queryError } = await query;
 
-      if (filters.sacScales.length > 0) {
-        query = query.in('sac_scale', filters.sacScales);
-      }
-
-      query = query.order('created_at', { ascending: false }).limit(50);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      if (queryError) throw queryError;
       const fetched = (data as Route[]) ?? [];
-      setRoutes(fetched.length > 0 ? fetched : DEMO_ROUTES);
+      // Demo-Routen nur in der Entwicklung, nie im fertigen Build
+      const useDemo = __DEV__ && fetched.length === 0;
+      setRoutes(useDemo ? DEMO_ROUTES : fetched);
+      setIsDemo(useDemo);
     } catch (err) {
       console.error('Failed to fetch filtered routes:', err);
-      // Fallback to demo routes so the app is still usable for testing
-      setRoutes(DEMO_ROUTES);
+      setRoutes(__DEV__ ? DEMO_ROUTES : []);
+      setIsDemo(__DEV__);
+      if (!__DEV__) setError(LOAD_ERROR);
     } finally {
       setIsLoading(false);
     }
-  }, [
-    filters.sacScales,
-    filters.maxDistance,
-    filters.maxElevation,
-    filters.maxDuration,
-    filters.maxHeight,
-  ]);
+  }, []);
 
   return {
     ...filters,
     routes,
     isLoading,
+    error,
+    isDemo,
     fetchFilteredRoutes,
   };
 }

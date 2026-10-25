@@ -31,11 +31,11 @@ export const DEFAULT_ROUTE_FILTERS: RouteFilterValues = {
 };
 
 /** Teil des Supabase-Query-Builders, den die Filter brauchen. */
-export interface RouteFilterBuilder<Q> {
-  or(filters: string): Q;
-  gte(column: string, value: number): Q;
-  lte(column: string, value: number): Q;
-  in(column: string, values: SACScale[]): Q;
+export interface RouteFilterBuilder {
+  or(filters: string): this;
+  gte(column: string, value: number): this;
+  lte(column: string, value: number): this;
+  in(column: string, values: readonly SACScale[]): this;
 }
 
 /**
@@ -43,7 +43,7 @@ export interface RouteFilterBuilder<Q> {
  * Anschlag (0 bzw. Maximum) setzen keinen Filter, damit Routen ohne
  * Kennzahl (NULL) nicht herausfallen.
  */
-export function applyRouteFilters<Q extends RouteFilterBuilder<Q>>(
+export function applyRouteFilters<Q extends RouteFilterBuilder>(
   query: Q,
   f: RouteFilterValues,
 ): Q {
