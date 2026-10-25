@@ -2,6 +2,7 @@
 // Unit tests for buildTourShareText (lib/tourShareText).
 
 import {
+  buildBadgeShareText,
   buildTourShareText,
   formatSwissNumber,
   TOUR_SHARE_TEXT_MAX_LENGTH,
@@ -72,5 +73,25 @@ describe('formatSwissNumber', () => {
   it('groups thousands with an apostrophe', () => {
     expect(formatSwissNumber(1234567.4)).toBe('1’234’567');
     expect(formatSwissNumber(999)).toBe('999');
+  });
+});
+
+describe('buildBadgeShareText', () => {
+  it('builds the text with icon and name', () => {
+    expect(buildBadgeShareText({ name: 'Erster Gipfel', icon_url: '🏔️' })).toBe(
+      'Neues Abzeichen: 🏔️ Erster Gipfel 🏆',
+    );
+  });
+
+  it('falls back to 🏅 without an icon', () => {
+    expect(buildBadgeShareText({ name: 'Erster Gipfel', icon_url: null })).toBe(
+      'Neues Abzeichen: 🏅 Erster Gipfel 🏆',
+    );
+  });
+
+  it('falls back to «Abzeichen» without a name', () => {
+    expect(buildBadgeShareText({ name: null, icon_url: '🏔️' })).toBe(
+      'Neues Abzeichen: 🏔️ Abzeichen 🏆',
+    );
   });
 });
