@@ -1,9 +1,74 @@
 import {
+  addDays,
+  defaultTravelDate,
+  describeTransportError,
+  findNearestStation,
   formatDuration,
   formatTime,
+  formatTravelDateLabel,
   getSBBDeepLink,
   suggestDepartureTime,
+  TransportApiError,
 } from '../lib/publicTransport';
+
+// ─── Travel dates ─────────────────────────────────────────────────────────────
+
+describe('travel dates', () => {
+  const now = new Date(2026, 9, 25, 7, 0);
+
+  it('defaults to tomorrow, labelled «Morgen»', () => {
+    expect(defaultTravelDate(now)).toBe('2026-10-26');
+    expect(formatTravelDateLabel('2026-10-26', now)).toBe('Morgen');
+  });
+
+  it('labels today and other days', () => {
+    expect(formatTravelDateLabel('2026-10-25', now)).toBe('Heute');
+    expect(formatTravelDateLabel('2026-10-27', now)).toBe('Di 27.10.');
+  });
+
+  it('adds days across year end, DST change and month start', () => {
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2026-10-25', 1)).toBe('2026-10-26');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+});
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+
+describe('describeTransportError', () => {
+  it('reports a missing connection for network errors', () => {
+    expect(describeTransportError(new TypeError('Network request failed'))).toContain(
+      'Keine Internetverbindung',
+    );
+    expect(describeTransportError(new TransportApiError('x', 500), false)).toContain(
+      'Keine Internetverbindung',
+    );
+    expect(describeTransportError(new Error('x'), false)).toContain('Keine Internetverbindung');
+  });
+
+  it('distinguishes rate limits from other API errors', () => {
+    expect(describeTransportError(new TransportApiError('x', 429))).toContain('überlastet');
+    expect(describeTransportError(new TransportApiError('x', 503))).toContain('antwortet gerade nicht');
+    expect(describeTransportError(new Error('x'))).toBe('ÖV-Verbindungen konnten nicht geladen werden.');
+  });
+
+  describe('with a failing API', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('throws a TransportApiError and describes it in German', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+      const err = await findNearestStation(46.9, 7.4).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(TransportApiError);
+      expect((err as TransportApiError).status).toBe(500);
+      const message = describeTransportError(err);
+      expect(message).toContain('Fahrplandienst');
+      expect(message.toLowerCase()).not.toContain('failed');
+    });
+  });
+});
 
 // ─── formatDuration ───────────────────────────────────────────────────────────
 
