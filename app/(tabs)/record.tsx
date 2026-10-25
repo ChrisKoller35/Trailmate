@@ -51,8 +51,8 @@ export default function RecordScreen() {
   // Gesetzt, wenn «Navigation starten» in route-detail die Aufnahme öffnet
   const { routeId } = useLocalSearchParams<{ routeId?: string | string[] }>();
   const cameraRef = useRef<any>(null);
-  const { requestTrackingPermissions } = usePermissions();
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  const { requestLocationPermission, requestTrackingPermissions } = usePermissions();
+  const mountedRef = useRef(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -69,11 +69,13 @@ export default function RecordScreen() {
   const stopRecordingAction = useRecordingStore((s) => s.stopRecording);
   const { isSharing: isLiveSharing } = useLiveLocationSync();
 
-  // Request permissions on mount + check for crash recovery
+  // Beim Öffnen nur den Standort im Vordergrund fragen + unfertige Tour suchen.
+  // usePermissions liefert bei jedem Rendern neue Funktionen; der Merker
+  // sorgt dafür, dass das nur einmal läuft.
   useEffect(() => {
-    requestTrackingPermissions().then((granted) => {
-      setPermissionGranted(granted);
-    });
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    void requestLocationPermission();
 
     // Check for unfinished recording (crash recovery)
     getActiveRecordingId().then(async (activeId) => {
@@ -93,7 +95,7 @@ export default function RecordScreen() {
         router.push('/tour-summary');
       }
     });
-  }, [router, requestTrackingPermissions]);
+  }, [router, requestLocationPermission]);
 
   // Pedometer for step counting
   useEffect(() => {
@@ -164,11 +166,9 @@ export default function RecordScreen() {
   }, [trackPoints.length, status]);
 
   const handleStart = useCallback(async () => {
-    if (!permissionGranted) {
-      const granted = await requestTrackingPermissions();
-      if (!granted) return;
-      setPermissionGranted(true);
-    }
+    // Hintergrund-Standort erst hier; die Funktion prüft selbst, ob er schon erlaubt ist
+    const granted = await requestTrackingPermissions();
+    if (!granted) return;
     startRecording(normalizeRouteId(routeId));
     // Parameter leeren, damit eine spätere freie Aufzeichnung über den Tab
     // nicht an der alten Route hängt
@@ -179,7 +179,7 @@ export default function RecordScreen() {
       useRecordingStore.getState().reset();
       showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
     }
-  }, [permissionGranted, startRecording, requestTrackingPermissions, routeId, router]);
+  }, [startRecording,requestTrackingPermissions, routeId, router]);
 
   const handlePause = useCallback(async () => {
     pauseRecording();
