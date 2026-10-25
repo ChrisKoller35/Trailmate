@@ -26,6 +26,8 @@ interface BadgeEarnedModalProps {
   badge: Badge | null;
   onClose: () => void;
   onShare: () => void;
+  // Stelle in einer Folge mehrerer neuer Abzeichen (index ab 0)
+  position?: { index: number; total: number };
 }
 
 export default function BadgeEarnedModal({
@@ -33,6 +35,7 @@ export default function BadgeEarnedModal({
   badge,
   onClose,
   onShare,
+  position,
 }: BadgeEarnedModalProps) {
   if (!badge) return null;
 
@@ -51,6 +54,11 @@ export default function BadgeEarnedModal({
           <Text style={styles.confetti}>🎉🏆🎊</Text>
 
           <Text style={styles.heading}>Neues Abzeichen!</Text>
+          {position && position.total > 1 && (
+            <Text style={styles.position}>
+              {position.index + 1} von {position.total}
+            </Text>
+          )}
 
           <View style={[styles.badgeCircle, { borderColor: rarityColor }]}>
             <Text style={styles.badgeEmoji}>{badge.icon_url ?? '🏅'}</Text>
@@ -104,6 +112,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text,
     marginTop: 8,
+    marginBottom: 16,
+  },
+  position: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: -10,
     marginBottom: 16,
   },
   badgeCircle: {
