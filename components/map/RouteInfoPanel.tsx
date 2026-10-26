@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, SAC_SCALES } from '../../constants';
 import type { SACScale } from '../../types';
@@ -17,6 +17,8 @@ interface RouteInfoPanelProps {
   route: RouteInfo;
   onSave: () => void;
   onShowElevation: () => void;
+  isSaving?: boolean;
+  isSaved?: boolean;
 }
 
 function formatDuration(minutes: number): string {
@@ -31,7 +33,13 @@ function formatDistance(meters: number): string {
     : `${Math.round(meters)} m`;
 }
 
-export function RouteInfoPanel({ route, onSave, onShowElevation }: RouteInfoPanelProps) {
+export function RouteInfoPanel({
+  route,
+  onSave,
+  onShowElevation,
+  isSaving = false,
+  isSaved = false,
+}: RouteInfoPanelProps) {
   const sacInfo = route.sac_scale ? SAC_SCALES[route.sac_scale] : null;
 
   return (
@@ -92,9 +100,26 @@ export function RouteInfoPanel({ route, onSave, onShowElevation }: RouteInfoPane
           <Text style={styles.elevationButtonText}>Höhenprofil</Text>
         </Pressable>
 
-        <Pressable style={[styles.button, styles.saveButton]} onPress={onSave}>
-          <Ionicons name="bookmark-outline" size={18} color={Colors.surface} />
-          <Text style={styles.saveButtonText}>Route speichern</Text>
+        <Pressable
+          style={[styles.button, styles.saveButton, isSaved && styles.saveButtonDone]}
+          onPress={onSave}
+          disabled={isSaving || isSaved}
+          accessibilityState={{ disabled: isSaving || isSaved, busy: isSaving }}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color={Colors.surface} />
+          ) : (
+            <>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={Colors.surface}
+              />
+              <Text style={styles.saveButtonText}>
+                {isSaved ? 'Gespeichert ✓' : 'Route speichern'}
+              </Text>
+            </>
+          )}
         </Pressable>
       </View>
     </View>
@@ -182,6 +207,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: Colors.primary,
+  },
+  saveButtonDone: {
+    opacity: 0.7,
   },
   saveButtonText: {
     color: Colors.surface,
