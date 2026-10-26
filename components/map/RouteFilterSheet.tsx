@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, SAC_SCALES } from '../../constants';
 import type { SACScale } from '../../types';
 import { useRouteFilterStore } from '../../hooks/useRouteFilter';
+import { ROUTE_FILTER_LIMITS as L } from '../../lib/routeFilterQuery';
 
 interface RouteFilterSheetProps {
   visible: boolean;
@@ -30,9 +31,10 @@ function SliderRow({
   value,
   min,
   max,
+  step,
   unit,
-  onDecrease,
-  onIncrease,
+  openEnded = false,
+  onChange,
 }: {
   label: string;
   value: number;
@@ -40,15 +42,13 @@ function SliderRow({
   max: number;
   step: number;
   unit: string;
-  onDecrease: () => void;
-  onIncrease: () => void;
+  /** Maximalwert ohne Filter am Anschlag: «50+ km» statt «50 km». */
+  openEnded?: boolean;
+  onChange: (val: number) => void;
 }) {
-  const displayValue =
-    unit === 'km'
-      ? `${value} km`
-      : unit === 'h'
-        ? `${value} h`
-        : `${value} m`;
+  const displayValue = `${value}${openEnded && value >= max ? '+' : ''} ${unit}`;
+  const onDecrease = () => onChange(Math.max(min, value - step));
+  const onIncrease = () => onChange(Math.min(max, value + step));
 
   return (
     <View style={styles.sliderRow}>
@@ -87,13 +87,19 @@ export function RouteFilterSheet({ visible, onClose, onApply }: RouteFilterSheet
 
   const {
     sacScales,
+    minDistance,
     maxDistance,
+    minElevation,
     maxElevation,
+    minDuration,
     maxDuration,
     maxHeight,
     toggleSacScale,
+    setMinDistance,
     setMaxDistance,
+    setMinElevation,
     setMaxElevation,
+    setMinDuration,
     setMaxDuration,
     setMaxHeight,
     resetFilters,
@@ -169,50 +175,77 @@ export function RouteFilterSheet({ visible, onClose, onApply }: RouteFilterSheet
 
           {/* Distance */}
           <SliderRow
+            label="Min. Distanz"
+            value={minDistance}
+            min={L.distance.min}
+            max={maxDistance}
+            step={L.distance.step}
+            unit="km"
+            onChange={setMinDistance}
+          />
+          <SliderRow
             label="Max. Distanz"
             value={maxDistance}
-            min={1}
-            max={50}
-            step={1}
+            min={Math.max(minDistance, L.distance.step)}
+            max={L.distance.max}
+            step={L.distance.step}
             unit="km"
-            onDecrease={() => setMaxDistance(Math.max(1, maxDistance - 1))}
-            onIncrease={() => setMaxDistance(Math.min(50, maxDistance + 1))}
+            openEnded
+            onChange={setMaxDistance}
           />
 
           {/* Elevation */}
           <SliderRow
+            label="Min. Höhenmeter"
+            value={minElevation}
+            min={L.elevation.min}
+            max={maxElevation}
+            step={L.elevation.step}
+            unit="m"
+            onChange={setMinElevation}
+          />
+          <SliderRow
             label="Max. Höhenmeter"
             value={maxElevation}
-            min={100}
-            max={3000}
-            step={100}
+            min={Math.max(minElevation, L.elevation.step)}
+            max={L.elevation.max}
+            step={L.elevation.step}
             unit="m"
-            onDecrease={() => setMaxElevation(Math.max(100, maxElevation - 100))}
-            onIncrease={() => setMaxElevation(Math.min(3000, maxElevation + 100))}
+            openEnded
+            onChange={setMaxElevation}
           />
 
           {/* Duration */}
           <SliderRow
+            label="Min. Dauer"
+            value={minDuration}
+            min={L.duration.min}
+            max={maxDuration}
+            step={L.duration.step}
+            unit="h"
+            onChange={setMinDuration}
+          />
+          <SliderRow
             label="Max. Dauer"
             value={maxDuration}
-            min={1}
-            max={12}
-            step={1}
+            min={Math.max(minDuration, L.duration.step)}
+            max={L.duration.max}
+            step={L.duration.step}
             unit="h"
-            onDecrease={() => setMaxDuration(Math.max(1, maxDuration - 1))}
-            onIncrease={() => setMaxDuration(Math.min(12, maxDuration + 1))}
+            openEnded
+            onChange={setMaxDuration}
           />
 
           {/* Max Height */}
           <SliderRow
             label="Max. Höhe (m ü.M.)"
             value={maxHeight}
-            min={500}
-            max={4500}
-            step={100}
+            min={L.height.min}
+            max={L.height.max}
+            step={L.height.step}
             unit="m"
-            onDecrease={() => setMaxHeight(Math.max(500, maxHeight - 100))}
-            onIncrease={() => setMaxHeight(Math.min(4500, maxHeight + 100))}
+            openEnded
+            onChange={setMaxHeight}
           />
 
           <View style={{ height: 20 }} />
