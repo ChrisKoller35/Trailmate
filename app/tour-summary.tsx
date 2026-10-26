@@ -259,6 +259,22 @@ export default function TourSummaryScreen() {
     },
   ];
 
+  // Nach dem Speichern ist der Aufnahme-Speicher schon leer. Hinter den
+  // Abzeichen darum keine Zusammenfassung mit Nullwerten zeigen.
+  if (badgeQueue) {
+    return (
+      <View style={styles.container}>
+        <BadgeEarnedModal
+          visible
+          badge={badgeQueue.badges[badgeQueue.index]}
+          position={{ index: badgeQueue.index, total: badgeQueue.badges.length }}
+          onClose={handleBadgeClose}
+          onShare={handleBadgeShare}
+        />
+      </View>
+    );
+  }
+
   return (
     <>
       <Stack.Screen
@@ -480,15 +496,6 @@ export default function TourSummaryScreen() {
           </Pressable>
         </View>
       </ScrollView>
-      <BadgeEarnedModal
-        visible={badgeQueue !== null}
-        badge={badgeQueue ? badgeQueue.badges[badgeQueue.index] : null}
-        position={
-          badgeQueue ? { index: badgeQueue.index, total: badgeQueue.badges.length } : undefined
-        }
-        onClose={handleBadgeClose}
-        onShare={handleBadgeShare}
-      />
     </>
   );
 }

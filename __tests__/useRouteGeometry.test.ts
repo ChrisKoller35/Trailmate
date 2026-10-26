@@ -53,13 +53,19 @@ describe('useRouteGeometry', () => {
     });
   });
 
-  it('ergibt null bei einem RPC-Fehler', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+  it('ergibt null, wenn die Route keine Linie hat', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
     useRouteGeometry(ROUTE_ID);
     await expect(mockOptions?.queryFn()).resolves.toBeNull();
+  });
+
+  it('wirft bei Fehlern, damit React Query es nochmals versucht; der Hook gibt null', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    expect(useRouteGeometry(ROUTE_ID)).toBeNull();
+    await expect(mockOptions?.queryFn()).rejects.toEqual({ message: 'boom' });
 
     mockRpc.mockRejectedValue(new Error('offline'));
-    await expect(mockOptions?.queryFn()).resolves.toBeNull();
+    await expect(mockOptions?.queryFn()).rejects.toThrow('offline');
   });
 
   it('fragt ohne Route nichts ab', () => {
