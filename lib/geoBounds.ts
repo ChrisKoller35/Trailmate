@@ -19,3 +19,12 @@ export function lineBounds(
   if (minLng === Infinity) return null;
   return { ne: [maxLng, maxLat], sw: [minLng, minLat] };
 }
+
+// Vergleichsschlüssel für Grenzen, damit die Karte nur bei neuen Grenzen
+// neu ausrichtet und nicht bei jedem neuen Objekt. Ohne Grenzen null.
+export function boundsKey(
+  b: { ne: [number, number]; sw: [number, number] } | null | undefined,
+): string | null {
+  if (!b) return null;
+  return [...b.ne, ...b.sw].map((n) => n.toFixed(6)).join(',');
+}
