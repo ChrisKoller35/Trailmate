@@ -4,6 +4,7 @@ import maplibregl from 'maplibre-gl';
 import { Colors } from '../../constants';
 import { ensureMapLibreCSS } from './maplibre-gl-css';
 import { SWISSTOPO_RASTER_STYLE, SWISSTOPO_HIKING_TILES } from '../../lib/mapStyle';
+import { boundsKey } from '../../lib/geoBounds';
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -17,6 +18,8 @@ interface TrailMapWebProps {
   /** Ort, zu dem die Karte fliegt und einen Such-Marker zeigt ([Länge, Breite]) */
   focusPoint?: [number, number] | null;
   focusZoom?: number;
+  /** Grenzen, auf die sich die Karte einmal ausrichtet, wenn sie sich ändern */
+  fitBounds?: { ne: [number, number]; sw: [number, number] } | null;
   style?: ViewStyle;
 }
 
@@ -43,6 +46,7 @@ export function TrailMapWeb({
   showHikingTrails = true,
   focusPoint,
   focusZoom = 13,
+  fitBounds,
   style,
 }: TrailMapWebProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -174,6 +178,14 @@ export function TrailMapWeb({
       .addTo(map);
     map.flyTo({ center: focusPoint, zoom: focusZoom });
   }, [focusPoint, focusZoom]);
+
+  // Auf Grenzen ausrichten, nur wenn sie sich wirklich ändern
+  const fitKey = boundsKey(fitBounds);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!fitBounds || !map) return;
+    map.fitBounds([fitBounds.sw, fitBounds.ne], { padding: 48, duration: 800 });
+  }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle hiking trails
   useEffect(() => {
