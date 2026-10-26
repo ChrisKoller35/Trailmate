@@ -37,6 +37,9 @@ import { SWISSTOPO_STYLE_JSON } from '../../lib/mapStyle';
 import { chooseAction, confirmAction } from '../../lib/dialog';
 import { showErrorToast, showInfoToast } from '../../lib/toast';
 import { normalizeRouteId } from '../../lib/routeId';
+import { totalSteps } from '../../lib/stepCounter';
+import { lineBounds } from '../../lib/geoBounds';
+import { useRouteGeometry } from '../../hooks/useRouteGeometry';
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -51,8 +54,8 @@ export default function RecordScreen() {
   // Gesetzt, wenn «Navigation starten» in route-detail die Aufnahme öffnet
   const { routeId } = useLocalSearchParams<{ routeId?: string | string[] }>();
   const cameraRef = useRef<any>(null);
-  const { requestTrackingPermissions } = usePermissions();
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  const { requestLocationPermission, requestTrackingPermissions } = usePermissions();
+  const mountedRef = useRef(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -62,6 +65,7 @@ export default function RecordScreen() {
   const totalPauseDuration = useRecordingStore((s) => s.totalPauseDuration);
   const pausedAt = useRecordingStore((s) => s.pausedAt);
   const currentStats = useRecordingStore((s) => s.currentStats);
+  const recordingRouteId = useRecordingStore((s) => s.routeId);
 
   const startRecording = useRecordingStore((s) => s.startRecording);
   const pauseRecording = useRecordingStore((s) => s.pauseRecording);
@@ -69,11 +73,13 @@ export default function RecordScreen() {
   const stopRecordingAction = useRecordingStore((s) => s.stopRecording);
   const { isSharing: isLiveSharing } = useLiveLocationSync();
 
-  // Request permissions on mount + check for crash recovery
+  // Beim Öffnen nur den Standort im Vordergrund fragen + unfertige Tour suchen.
+  // usePermissions liefert bei jedem Rendern neue Funktionen; der Merker
+  // sorgt dafür, dass das nur einmal läuft.
   useEffect(() => {
-    requestTrackingPermissions().then((granted) => {
-      setPermissionGranted(granted);
-    });
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    void requestLocationPermission();
 
     // Check for unfinished recording (crash recovery)
     getActiveRecordingId().then(async (activeId) => {
@@ -93,17 +99,19 @@ export default function RecordScreen() {
         router.push('/tour-summary');
       }
     });
-  }, [router, requestTrackingPermissions]);
+  }, [router, requestLocationPermission]);
 
   // Pedometer for step counting
   useEffect(() => {
     if (status !== 'recording') return;
     let subscription: { remove: () => void } | null = null;
-    const setSteps = useRecordingStore.getState().setSteps;
+    const { setSteps, currentStats } = useRecordingStore.getState();
+    // Das Abo zählt ab 0; Schritte vor einer Pause bleiben als Basis erhalten
+    const stepsBefore = currentStats.steps;
     Pedometer.isAvailableAsync().then((available) => {
       if (!available) return;
       subscription = Pedometer.watchStepCount((result) => {
-        setSteps(result.steps);
+        setSteps(totalSteps(stepsBefore, result.steps));
       });
     });
     return () => {
@@ -147,6 +155,20 @@ export default function RecordScreen() {
     };
   }, [trackPoints]);
 
+  // Geplante Route: vor dem Start aus dem Parameter, danach aus dem Store
+  const plannedRouteId = status === 'idle' ? normalizeRouteId(routeId) : recordingRouteId;
+  const plannedRoute = useRouteGeometry(plannedRouteId);
+  const fittedRouteRef = useRef<typeof plannedRoute>(null);
+
+  // Solange keine Aufnahme läuft, einmal auf die geplante Route ausrichten
+  useEffect(() => {
+    if (status !== 'idle' || !plannedRoute || fittedRouteRef.current === plannedRoute) return;
+    const bounds = lineBounds(plannedRoute.geometry.coordinates);
+    if (!bounds || !cameraRef.current) return;
+    fittedRouteRef.current = plannedRoute;
+    cameraRef.current.fitBounds(bounds.ne, bounds.sw, 40, 500);
+  }, [plannedRoute, status]);
+
   // Follow user when recording
   useEffect(() => {
     if (
@@ -164,11 +186,9 @@ export default function RecordScreen() {
   }, [trackPoints.length, status]);
 
   const handleStart = useCallback(async () => {
-    if (!permissionGranted) {
-      const granted = await requestTrackingPermissions();
-      if (!granted) return;
-      setPermissionGranted(true);
-    }
+    // Hintergrund-Standort erst hier; die Funktion prüft selbst, ob er schon erlaubt ist
+    const granted = await requestTrackingPermissions();
+    if (!granted) return;
     startRecording(normalizeRouteId(routeId));
     // Parameter leeren, damit eine spätere freie Aufzeichnung über den Tab
     // nicht an der alten Route hängt
@@ -179,7 +199,7 @@ export default function RecordScreen() {
       useRecordingStore.getState().reset();
       showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
     }
-  }, [permissionGranted, startRecording, requestTrackingPermissions, routeId, router]);
+  }, [startRecording,requestTrackingPermissions, routeId, router]);
 
   const handlePause = useCallback(async () => {
     pauseRecording();
@@ -223,7 +243,7 @@ export default function RecordScreen() {
       return (
         <TrailMap
           style={styles.map}
-          routeGeoJSON={trackGeoJSON}
+          routeGeoJSON={trackGeoJSON ?? plannedRoute}
         />
       );
     }
@@ -242,6 +262,22 @@ export default function RecordScreen() {
           }}
         />
         <UserLocation visible />
+
+        {/* Vor der Aufzeichnung im JSX, damit die Linie darunter liegt */}
+        {plannedRoute && (
+          <ShapeSource id="planned-route" shape={plannedRoute}>
+            <LineLayer
+              id="planned-route-line"
+              style={{
+                lineColor: Colors.primary,
+                lineWidth: 4,
+                lineDasharray: [2, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+        )}
 
         {trackGeoJSON && (
           <ShapeSource id="recording-track" shape={trackGeoJSON}>
@@ -291,16 +327,23 @@ export default function RecordScreen() {
             <Text style={styles.idleSubtitle}>
               Zeichne deine Wanderung auf und verfolge deine Statistiken
             </Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.startButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleStart}
-            >
-              <Ionicons name="play" size={24} color={Colors.textOnPrimary} />
-              <Text style={styles.startButtonText}>Tour starten</Text>
-            </Pressable>
+            {/* Im Browser gibt es kein Hintergrund-GPS (expo-task-manager) */}
+            {Platform.OS === 'web' ? (
+              <Text style={styles.webHint}>
+                Aufzeichnen geht nur in der TrailMate-App auf dem Handy.
+              </Text>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.startButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleStart}
+              >
+                <Ionicons name="play" size={24} color={Colors.textOnPrimary} />
+                <Text style={styles.startButtonText}>Tour starten</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -504,6 +547,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textOnPrimary,
+  },
+  webHint: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+    textAlign: 'center',
   },
   buttonPressed: {
     opacity: 0.85,
