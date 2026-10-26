@@ -14,6 +14,8 @@ import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { buildTourShareText } from '../lib/tourShareText';
+import { confirmAction } from '../lib/dialog';
+import { useRecordingVisibility } from '../hooks/useRecordingVisibility';
 import type { Recording } from '../types';
 
 function formatDistance(meters: number | null): string {
@@ -44,6 +46,7 @@ export default function RecordingHistoryScreen() {
   const session = useAuthStore((s) => s.session);
   const userId = session?.user?.id;
   const router = useRouter();
+  const { setHidden } = useRecordingVisibility();
 
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,11 +100,38 @@ export default function RecordingHistoryScreen() {
     [router],
   );
 
+  const applyHidden = useCallback((id: string, hidden: boolean) => {
+    setRecordings((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_hidden: hidden } : r)),
+    );
+  }, []);
+
+  const handleToggleHidden = useCallback(
+    async (item: Recording) => {
+      const hidden = !item.is_hidden;
+      if (hidden) {
+        const confirmed = await confirmAction({
+          title: 'Tour verstecken?',
+          message:
+            'Andere sehen diese Tour nicht mehr, und sie zählt nicht in deinen Profil-Zahlen. Du kannst sie jederzeit wieder zeigen.',
+          confirmText: 'Verstecken',
+        });
+        if (!confirmed) return;
+      }
+      // Sofort anzeigen, bei einem Fehler zurückspringen
+      applyHidden(item.id, hidden);
+      const ok = await setHidden(item.id, hidden);
+      if (!ok) applyHidden(item.id, !hidden);
+    },
+    [applyHidden, setHidden],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: Recording }) => (
       <Pressable
         style={({ pressed }) => [
           styles.card,
+          item.is_hidden && styles.cardHidden,
           pressed && styles.cardPressed,
         ]}
       >
@@ -109,15 +139,31 @@ export default function RecordingHistoryScreen() {
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.title || 'Unbenannte Tour'}
           </Text>
+          {item.is_hidden && <Text style={styles.hiddenBadge}>Versteckt</Text>}
           <Pressable
-            onPress={() => handleShare(item)}
+            onPress={() => handleToggleHidden(item)}
             hitSlop={10}
             style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}
             accessibilityRole="button"
-            accessibilityLabel="Im Feed teilen"
+            accessibilityLabel={item.is_hidden ? 'Tour zeigen' : 'Tour verstecken'}
           >
-            <Ionicons name="share-social-outline" size={18} color={Colors.primary} />
+            <Ionicons
+              name={item.is_hidden ? 'eye-outline' : 'eye-off-outline'}
+              size={18}
+              color={Colors.primary}
+            />
           </Pressable>
+          {!item.is_hidden && (
+            <Pressable
+              onPress={() => handleShare(item)}
+              hitSlop={10}
+              style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Im Feed teilen"
+            >
+              <Ionicons name="share-social-outline" size={18} color={Colors.primary} />
+            </Pressable>
+          )}
         </View>
         <View style={styles.cardStats}>
           <View style={styles.cardStat}>
@@ -156,7 +202,7 @@ export default function RecordingHistoryScreen() {
         <Text style={styles.cardDate}>{formatDate(item.started_at)}</Text>
       </Pressable>
     ),
-    [handleShare],
+    [handleShare, handleToggleHidden],
   );
 
   const keyExtractor = useCallback((item: Recording) => item.id, []);
@@ -262,6 +308,9 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  cardHidden: {
+    opacity: 0.55,
+  },
   cardPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.99 }],
@@ -277,6 +326,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: Colors.text,
+  },
+  hiddenBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    backgroundColor: Colors.surfaceVariant,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   shareButton: {
     padding: 6,
