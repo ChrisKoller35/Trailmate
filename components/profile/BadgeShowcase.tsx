@@ -32,17 +32,22 @@ export default function BadgeShowcase({ badges, onShowAll }: BadgeShowcaseProps)
       <Text style={styles.sectionTitle}>Abzeichen</Text>
       <View style={styles.grid}>
         {badges.slice(0, 6).map((item) => (
-          <View key={item.badge_id} style={styles.badgeItem}>
+          <Pressable
+            key={item.badge_id}
+            style={styles.badgeItem}
+            onPress={onShowAll}
+            disabled={!onShowAll}
+          >
             <View style={[styles.badgeIcon, { borderColor: RARITY_COLORS[item.badge?.rarity ?? 'normal'] ?? Colors.textSecondary }]}>
               <Text style={styles.badgeEmoji}>{item.badge?.icon_url ?? '🏅'}</Text>
             </View>
             <Text style={styles.badgeName} numberOfLines={1}>
               {item.badge?.name ?? 'Abzeichen'}
             </Text>
-          </View>
+          </Pressable>
         ))}
       </View>
-      {badges.length > 6 && (
+      {onShowAll && (
         <Pressable onPress={onShowAll} style={styles.showAll}>
           <Text style={styles.showAllText}>Alle anzeigen →</Text>
         </Pressable>

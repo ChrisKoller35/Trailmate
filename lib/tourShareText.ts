@@ -4,6 +4,7 @@
 // Tour als Text geteilt (Titel + Zeile mit Distanz, Aufstieg und Gehzeit).
 
 import { formatDistance, formatDuration } from './trackingCalculations';
+import type { Badge } from '../types';
 
 export const TOUR_SHARE_TEXT_MAX_LENGTH = 280;
 
@@ -58,4 +59,11 @@ export function buildTourShareText(input: TourShareInput): string {
 
   const text = statsLine ? `${shortTitle}\n${statsLine}` : shortTitle;
   return text.slice(0, TOUR_SHARE_TEXT_MAX_LENGTH);
+}
+
+/** «Neues Abzeichen: 🏔️ Erster Gipfel 🏆» – ein Abzeichen als Text im Feed teilen. */
+export function buildBadgeShareText(badge: Pick<Badge, 'name' | 'icon_url'>): string {
+  const icon = badge.icon_url?.trim() || '🏅';
+  const name = badge.name?.trim() || 'Abzeichen';
+  return `Neues Abzeichen: ${icon} ${name} 🏆`;
 }

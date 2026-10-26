@@ -28,8 +28,14 @@ import { useAuthStore } from '../stores/authStore';
 import { formatDuration, formatDistance } from '../lib/trackingCalculations';
 import { exportRecordingAsGPX } from '../lib/gpxExport';
 import { ElevationProfile } from '../components/map/ElevationProfile';
-import { buildTourShareText, formatSwissNumber } from '../lib/tourShareText';
+import {
+  buildBadgeShareText,
+  buildTourShareText,
+  formatSwissNumber,
+} from '../lib/tourShareText';
 import { useSaveRecording } from '../hooks/useSaveRecording';
+import BadgeEarnedModal from '../components/gamification/BadgeEarnedModal';
+import type { Badge } from '../types';
 
 import { SWISSTOPO_STYLE_JSON } from '../lib/mapStyle';
 
@@ -57,6 +63,13 @@ export default function TourSummaryScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const { saveRecording, isSaving } = useSaveRecording();
   const savingRef = useRef(false);
+  // Neue Abzeichen nach dem Speichern, eins nach dem anderen; tourText ist
+  // gesetzt, wenn es danach zum Teilen der Tour weitergeht.
+  const [badgeQueue, setBadgeQueue] = useState<{
+    badges: Badge[];
+    index: number;
+    tourText: string | null;
+  } | null>(null);
 
   const trackPoints = useRecordingStore((s) => s.trackPoints);
   const currentStats = useRecordingStore((s) => s.currentStats);
@@ -104,10 +117,45 @@ export default function TourSummaryScreen() {
     }
   }, [saveRecording, title, currentStats, movingSeconds, startedAt, trackPoints, routeId]);
 
+  // Weiter wie ohne Abzeichen: zur Aufnahme bzw. zum Beitrag mit dem Tour-Text
+  const continueAfterSave = useCallback(
+    (tourText: string | null) => {
+      if (tourText) router.replace({ pathname: '/create-post', params: { text: tourText } });
+      else router.replace('/(tabs)/record');
+    },
+    [router],
+  );
+
+  const afterSave = useCallback(
+    (newBadges: Badge[], tourText: string | null) => {
+      if (newBadges.length > 0) setBadgeQueue({ badges: newBadges, index: 0, tourText });
+      else continueAfterSave(tourText);
+    },
+    [continueAfterSave],
+  );
+
+  const handleBadgeClose = useCallback(() => {
+    if (!badgeQueue) return;
+    if (badgeQueue.index + 1 < badgeQueue.badges.length) {
+      setBadgeQueue({ ...badgeQueue, index: badgeQueue.index + 1 });
+    } else {
+      setBadgeQueue(null);
+      continueAfterSave(badgeQueue.tourText);
+    }
+  }, [badgeQueue, continueAfterSave]);
+
+  const handleBadgeShare = useCallback(() => {
+    if (!badgeQueue) return;
+    const badgeText = buildBadgeShareText(badgeQueue.badges[badgeQueue.index]);
+    const text = badgeQueue.tourText ? `${badgeQueue.tourText}\n\n${badgeText}` : badgeText;
+    setBadgeQueue(null);
+    router.replace({ pathname: '/create-post', params: { text } });
+  }, [badgeQueue, router]);
+
   const handleSave = useCallback(async () => {
-    const recordingId = await saveOnce();
-    if (recordingId) router.replace('/(tabs)/record');
-  }, [saveOnce, router]);
+    const result = await saveOnce();
+    if (result) afterSave(result.newBadges, null);
+  }, [saveOnce, afterSave]);
 
   const handleExportGPX = useCallback(async () => {
     if (!isPremium) {
@@ -161,9 +209,9 @@ export default function TourSummaryScreen() {
       durationSeconds: currentStats.duration,
       movingSeconds,
     });
-    const recordingId = await saveOnce();
-    if (recordingId) router.replace({ pathname: '/create-post', params: { text } });
-  }, [title, currentStats, movingSeconds, saveOnce, router]);
+    const result = await saveOnce();
+    if (result) afterSave(result.newBadges, text);
+  }, [title, currentStats, movingSeconds, saveOnce, afterSave]);
 
   const stats = [
     {
@@ -432,6 +480,15 @@ export default function TourSummaryScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      <BadgeEarnedModal
+        visible={badgeQueue !== null}
+        badge={badgeQueue ? badgeQueue.badges[badgeQueue.index] : null}
+        position={
+          badgeQueue ? { index: badgeQueue.index, total: badgeQueue.badges.length } : undefined
+        }
+        onClose={handleBadgeClose}
+        onShare={handleBadgeShare}
+      />
     </>
   );
 }

@@ -16,6 +16,7 @@ interface RecordedQuery {
   op: 'insert' | 'select';
   values: unknown;
   selected: string | null;
+  inIds?: string[];
 }
 
 const mockRecorded: RecordedQuery[] = [];
@@ -23,6 +24,10 @@ let mockRow: { id: string } | null = null;
 let mockError: { code: string; message: string } | null = null;
 // Fehler für die nächsten Inserts der Reihe nach; leer = mockError
 const mockErrorQueue: ({ code: string; message: string } | null)[] = [];
+let mockBadges: { data: unknown[] | null; error: { message: string } | null } = {
+  data: [],
+  error: null,
+};
 let mockUserId: string | null = 'me';
 const mockReset = jest.fn();
 
@@ -32,6 +37,7 @@ function mockMakeBuilder(table: string) {
   const builder = {
     insert: (v: unknown) => { query.op = 'insert'; query.values = v; return builder; },
     select: (cols: string) => { query.selected = cols; return builder; },
+    in: (_col: string, ids: string[]) => { query.inIds = ids; return Promise.resolve(mockBadges); },
     single: () => {
       const error = mockErrorQueue.length > 0 ? mockErrorQueue.shift() ?? null : mockError;
       return Promise.resolve({ data: error ? null : mockRow, error });
@@ -106,6 +112,7 @@ beforeEach(() => {
   mockRow = { id: 'rec-1' };
   mockError = null;
   mockErrorQueue.length = 0;
+  mockBadges = { data: [], error: null };
   mockUserId = 'me';
   jest.clearAllMocks();
   jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -113,8 +120,12 @@ beforeEach(() => {
 
 describe('useSaveRecording', () => {
   it('inserts the recording and returns the new ID', async () => {
-    await expect(useSaveRecording().saveRecording(input)).resolves.toBe('rec-1');
+    await expect(useSaveRecording().saveRecording(input)).resolves.toEqual({
+      recordingId: 'rec-1',
+      newBadges: [],
+    });
 
+    // Ohne neue Abzeichen keine Abfrage auf badges
     expect(mockRecorded).toHaveLength(1);
     const q = mockRecorded[0];
     expect(q.table).toBe('recordings');
@@ -144,20 +155,47 @@ describe('useSaveRecording', () => {
     expect(showErrorToast).not.toHaveBeenCalled();
   });
 
-  it('reports new badges', async () => {
+  it('loads the new badges and returns them in the order of the IDs', async () => {
     (checkAndAwardBadges as jest.Mock).mockResolvedValueOnce(['a', 'b']);
+    const badgeA = { id: 'a', name: 'Erster Gipfel', description: null, icon_url: '🏔️', category: null, rarity: 'normal' };
+    const badgeB = { id: 'b', name: 'Frühaufsteher', description: null, icon_url: '🌅', category: null, rarity: 'rare' };
+    mockBadges = { data: [badgeB, badgeA], error: null };
 
-    await useSaveRecording().saveRecording(input);
+    await expect(useSaveRecording().saveRecording(input)).resolves.toEqual({
+      recordingId: 'rec-1',
+      newBadges: [badgeA, badgeB],
+    });
+
+    expect(mockRecorded).toHaveLength(2);
+    expect(mockRecorded[1]).toMatchObject({
+      table: 'badges',
+      selected: 'id, name, description, icon_url, category, rarity',
+      inIds: ['a', 'b'],
+    });
+    expect(showSuccessToast).toHaveBeenCalledWith('Deine Tour wurde erfolgreich gespeichert.');
+  });
+
+  it('reports the number of new badges when loading their details fails', async () => {
+    (checkAndAwardBadges as jest.Mock).mockResolvedValueOnce(['a', 'b']);
+    mockBadges = { data: null, error: { message: 'network' } };
+
+    await expect(useSaveRecording().saveRecording(input)).resolves.toEqual({
+      recordingId: 'rec-1',
+      newBadges: [],
+    });
 
     expect(showSuccessToast).toHaveBeenCalledWith(
       '🏆 Tour gespeichert! Du hast 2 neue Abzeichen verdient!',
     );
+    expect(mockReset).toHaveBeenCalledTimes(1);
   });
 
   it('still returns the ID when the badge check fails', async () => {
     (checkAndAwardBadges as jest.Mock).mockRejectedValueOnce(new Error('boom'));
 
-    await expect(useSaveRecording().saveRecording(input)).resolves.toBe('rec-1');
+    await expect(useSaveRecording().saveRecording(input)).resolves.toMatchObject({
+      recordingId: 'rec-1',
+    });
     expect(mockReset).toHaveBeenCalledTimes(1);
   });
 
@@ -185,7 +223,7 @@ describe('useSaveRecording', () => {
 
     await expect(
       useSaveRecording().saveRecording({ ...input, routeId: ROUTE_ID }),
-    ).resolves.toBe('rec-1');
+    ).resolves.toMatchObject({ recordingId: 'rec-1' });
 
     expect(mockRecorded).toHaveLength(2);
     expect(mockRecorded[0].values).toMatchObject({ route_id: ROUTE_ID });
