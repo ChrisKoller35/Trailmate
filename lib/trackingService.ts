@@ -11,6 +11,8 @@ const TRACKING_TASK_NAME = 'TRAILMATE_GPS_TRACKING';
 const MAX_ACCURACY = 50; // meters
 const MIN_DISTANCE_INTERVAL = 10; // meters
 const MAX_HIKING_SPEED_MS = 50 / 3.6; // 50 km/h → m/s
+// After a longer gap (tunnel, long pause) the old filter position is stale
+export const GPS_GAP_RESET_MS = 60_000;
 
 const kalmanFilter = new KalmanFilter();
 const pauseDetector = new PauseDetector();
@@ -34,7 +36,10 @@ TaskManager.defineTask(TRACKING_TASK_NAME, async ({ data, error }: { data: any; 
     // Filter out inaccurate readings
     if (accuracy != null && accuracy > MAX_ACCURACY) continue;
 
-    // Apply Kalman filter
+    // Apply Kalman filter, starting fresh after a long GPS gap
+    if (lastPoint && timestamp - lastPoint.timestamp > GPS_GAP_RESET_MS) {
+      kalmanFilter.reset();
+    }
     const filtered = kalmanFilter.process(latitude, longitude, accuracy ?? 10);
 
     // Check distance from last point
@@ -74,6 +79,7 @@ export async function startTracking(): Promise<{ success: boolean; error?: strin
   try {
     lastPoint = null;
     pauseDetector.reset();
+    kalmanFilter.reset();
 
     await Location.startLocationUpdatesAsync(TRACKING_TASK_NAME, {
       accuracy: Location.Accuracy.BestForNavigation,
@@ -111,6 +117,7 @@ export async function stopTracking(): Promise<void> {
   } finally {
     lastPoint = null;
     pauseDetector.reset();
+    kalmanFilter.reset();
   }
 }
 
