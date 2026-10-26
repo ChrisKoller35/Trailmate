@@ -8,10 +8,10 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, REGIONS } from '../../constants';
 import { showErrorToast } from '../../lib/toast';
+import { detectHomeRegion } from '../../lib/detectHomeRegion';
 import { usePermissions } from '../../hooks/usePermissions';
 import Button from '../../components/ui/Button';
 import ProgressIndicator from '../../components/onboarding/ProgressIndicator';
@@ -34,21 +34,11 @@ export default function HomeRegionScreen() {
   const detectLocation = async () => {
     const granted = await requestLocationPermission();
     if (!granted) return;
-    try {
-      const loc = await Location.getCurrentPositionAsync({});
-      const [result] = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-      if (result?.region) {
-        // Try to match to one of our predefined regions
-        const matched = REGIONS.find((r) =>
-          result.region?.toLowerCase().includes(r.split(' ')[0].toLowerCase()),
-        );
-        setHomeRegion(matched ?? result.region);
-      }
-    } catch {
-      showErrorToast('Standort konnte nicht ermittelt werden.');
+    const region = await detectHomeRegion({ requestPermission: false });
+    if (region) {
+      setHomeRegion(region);
+    } else {
+      showErrorToast('Keine Wanderregion in deiner Nähe gefunden. Bitte wähle eine aus der Liste.');
     }
   };
 
@@ -59,6 +49,13 @@ export default function HomeRegionScreen() {
       return;
     }
     setIsSaving(true);
+    // Ohne Auswahl einmal über den Standort schätzen, damit Schritt 5 passende Vorschläge zeigt.
+    // detectHomeRegion wirft nicht; ohne Freigabe bleibt die Region leer.
+    let region = homeRegion;
+    if (!region) {
+      region = await detectHomeRegion({ requestPermission: true });
+      setHomeRegion(region);
+    }
     try {
       // Upload avatar if selected
       let finalAvatarUrl: string | null = null;
@@ -82,7 +79,7 @@ export default function HomeRegionScreen() {
           username,
           avatar_url: finalAvatarUrl,
           hiking_level: hikingLevel,
-          home_region: homeRegion,
+          home_region: region,
         }, { onConflict: 'id' });
 
       if (saveError) throw saveError;
@@ -148,8 +145,13 @@ export default function HomeRegionScreen() {
           ))}
         </ScrollView>
 
+        {!homeRegion && (
+          <Text style={styles.skipHint}>
+            Ohne Auswahl schätzen wir die Region einmal über deinen Standort.
+          </Text>
+        )}
         <Button
-          title={isSaving ? 'Wird gespeichert…' : 'Weiter'}
+          title={isSaving ? 'Wird gespeichert…' : homeRegion ? 'Weiter' : 'Später wählen'}
           onPress={finish}
           disabled={isSaving}
         />
@@ -213,5 +215,11 @@ const styles = StyleSheet.create({
   regionTextSelected: {
     fontWeight: '700',
     color: Colors.primary,
+  },
+  skipHint: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
 });
