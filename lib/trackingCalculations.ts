@@ -25,9 +25,20 @@ export function calculateDistance(
   return EARTH_RADIUS * c;
 }
 
-export function calculateTotalDistance(points: TrackPoint[]): number {
+// Während einer manuellen Pause nimmt der Tracking-Service keine Punkte an.
+// Ein Schritt über eine abgeschlossene Pause (z. B. Bahnfahrt) ist darum keine
+// Wanderstrecke.
+export function spansManualPause(t0: number, t1: number, manualPauses: ManualPause[]): boolean {
+  return manualPauses.some((p) => p.end !== null && t0 <= p.start && t1 >= p.end);
+}
+
+export function calculateTotalDistance(
+  points: TrackPoint[],
+  manualPauses: ManualPause[] = []
+): number {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
+    if (spansManualPause(points[i - 1].timestamp, points[i].timestamp, manualPauses)) continue;
     total += calculateDistance(
       points[i - 1].latitude,
       points[i - 1].longitude,
@@ -38,11 +49,15 @@ export function calculateTotalDistance(points: TrackPoint[]): number {
   return total;
 }
 
-export function calculateElevation(points: TrackPoint[]): { gain: number; loss: number } {
+export function calculateElevation(
+  points: TrackPoint[],
+  manualPauses: ManualPause[] = []
+): { gain: number; loss: number } {
   let gain = 0;
   let loss = 0;
 
   for (let i = 1; i < points.length; i++) {
+    if (spansManualPause(points[i - 1].timestamp, points[i].timestamp, manualPauses)) continue;
     const prev = points[i - 1].altitude;
     const curr = points[i].altitude;
     if (prev == null || curr == null) continue;
