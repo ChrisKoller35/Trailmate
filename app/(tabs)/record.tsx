@@ -190,16 +190,19 @@ export default function RecordScreen() {
     const granted = await requestTrackingPermissions();
     if (!granted) return;
     startRecording(normalizeRouteId(routeId));
-    // Parameter leeren, damit eine spätere freie Aufzeichnung über den Tab
-    // nicht an der alten Route hängt
-    if (routeId) router.setParams({ routeId: '' });
     const result = await startTracking();
     if (!result.success) {
-      // GPS could not be started – reset recording state
+      // GPS could not be started – reset recording state. Der Parameter
+      // bleibt, damit die geplante Route sichtbar bleibt und der nächste
+      // Start sie wieder kennt.
       useRecordingStore.getState().reset();
       showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
+      return;
     }
-  }, [startRecording,requestTrackingPermissions, routeId, router]);
+    // Parameter erst jetzt leeren, damit eine spätere freie Aufzeichnung über
+    // den Tab nicht an der alten Route hängt
+    if (routeId) router.setParams({ routeId: '' });
+  }, [startRecording, requestTrackingPermissions, routeId, router]);
 
   const handlePause = useCallback(async () => {
     pauseRecording();

@@ -1,6 +1,8 @@
 // hooks/useRouteGeometry.ts
 // Linie einer geplanten Route über get_route_geojson (RLS: nur lesbare
-// Routen). Bei Fehlern null, die Aufnahme geht auch ohne Linie.
+// Routen). Ohne Linie null. Fehler wirft die Abfrage, damit React Query es
+// nochmals versucht und kein «keine Linie» für eine Stunde speichert; der
+// Hook gibt dann null zurück, die Aufnahme geht auch ohne Linie.
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -13,17 +15,14 @@ export interface RouteLineFeature {
 }
 
 export async function fetchRouteGeometry(routeId: string): Promise<RouteLineFeature | null> {
-  try {
-    const { data, error } = await supabase.rpc('get_route_geojson', { route_id: routeId });
-    if (error || data?.type !== 'LineString' || !Array.isArray(data.coordinates)) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: data.coordinates as number[][] },
-    };
-  } catch {
-    return null;
-  }
+  const { data, error } = await supabase.rpc('get_route_geojson', { route_id: routeId });
+  if (error) throw error;
+  if (data?.type !== 'LineString' || !Array.isArray(data.coordinates)) return null;
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: data.coordinates as number[][] },
+  };
 }
 
 export function useRouteGeometry(routeId: string | null): RouteLineFeature | null {
