@@ -43,24 +43,19 @@ export default function RecordingDetailScreen() {
 
   const header = <Stack.Screen options={{ headerShown: true, title: 'Tour' }} />;
 
-  if (isLoading || (isError && isRefetching)) {
+  const busy = isLoading || (isError && isRefetching);
+  if (busy || isError || !data) {
     return (
       <View style={styles.center}>
         {header}
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  if (isError || !data) {
-    return (
-      <View style={styles.center}>
-        {header}
-        <Ionicons name={isError ? 'cloud-offline-outline' : 'footsteps-outline'} size={48} color={Colors.textLight} />
-        <Text style={styles.message}>
-          {isError ? 'Die Tour konnte nicht geladen werden.' : 'Diese Tour gibt es nicht mehr.'}
-        </Text>
-        {isError && (
+        {busy ? (
+          <ActivityIndicator size="large" color={Colors.primary} />
+        ) : (
+          <Text style={styles.message}>
+            {isError ? 'Die Tour konnte nicht geladen werden.' : 'Diese Tour gibt es nicht mehr.'}
+          </Text>
+        )}
+        {isError && !busy && (
           <Pressable style={styles.retryButton} onPress={() => refetch()} accessibilityRole="button">
             <Text style={styles.retryButtonText}>Nochmal versuchen</Text>
           </Pressable>
@@ -91,23 +86,13 @@ export default function RecordingDetailScreen() {
         ) : Platform.OS === 'web' || !mapLibreAvailable ? (
           <TrailMap style={styles.map} routeGeoJSON={line} />
         ) : (
-          <MapView
-            style={styles.map}
-            mapStyle={SWISSTOPO_STYLE_JSON}
-            logoEnabled={false}
-            attributionEnabled={false}
-            rotateEnabled={false}
-            pitchEnabled={false}
-          >
+          <MapView style={styles.map} mapStyle={SWISSTOPO_STYLE_JSON} logoEnabled={false} attributionEnabled={false} rotateEnabled={false} pitchEnabled={false}>
             <Camera
               defaultSettings={{ centerCoordinate: [8.2275, 46.8182], zoomLevel: 8 }}
               bounds={bounds ? { ...bounds, paddingLeft: 40, paddingRight: 40, paddingTop: 40, paddingBottom: 40 } : undefined}
             />
             <ShapeSource id="detail-track" shape={line}>
-              <LineLayer
-                id="detail-line"
-                style={{ lineColor: '#FF6B35', lineWidth: 4, lineCap: 'round', lineJoin: 'round' }}
-              />
+              <LineLayer id="detail-line" style={{ lineColor: '#FF6B35', lineWidth: 4, lineCap: 'round', lineJoin: 'round' }} />
             </ShapeSource>
           </MapView>
         )}
