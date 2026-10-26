@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  defaultTravelDate,
+  describeTransportError,
   findNearestStation,
   getConnections,
   getSBBDeepLink,
@@ -29,12 +31,13 @@ interface UsePublicTransportReturn {
 
 // ─── Helpers ───────────────────────────────────────────────
 
-function getTodayDateString(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const day = d.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
+class StationNotFoundError extends Error {}
+
+function describeError(err: unknown): string {
+  if (err instanceof StationNotFoundError) return 'Keine Haltestelle in der Nähe gefunden.';
+  // navigator.onLine only exists in the browser; React Native leaves it undefined
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return describeTransportError(err, offline ? false : undefined);
 }
 
 // ─── Hook ──────────────────────────────────────────────────
@@ -47,7 +50,7 @@ export function usePublicTransport(
   endLng?: number,
   routeDurationMin?: number,
 ): UsePublicTransportReturn {
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString);
+  const [selectedDate, setSelectedDate] = useState(() => defaultTravelDate());
   const [selectedTime, setSelectedTime] = useState('08:00');
 
   // Set suggested departure time based on route duration
@@ -63,7 +66,7 @@ export function usePublicTransport(
     queryKey: queryKeys.transport.stations(startLat!, startLng!, endLat, endLng),
     queryFn: async (): Promise<{ start: TransportStation; end: TransportStation }> => {
       const start = await findNearestStation(startLat!, startLng!);
-      if (!start) throw new Error('Station konnte nicht gefunden werden');
+      if (!start) throw new StationNotFoundError('No station found');
 
       let end: TransportStation = start;
       if (endLat !== undefined && endLng !== undefined) {
@@ -115,15 +118,21 @@ export function usePublicTransport(
   const isLoading = stationsQuery.isLoading || connectionsQuery.isLoading;
 
   const error = useMemo(() => {
-    if (stationsQuery.error instanceof Error) return stationsQuery.error.message;
-    if (connectionsQuery.error instanceof Error) return connectionsQuery.error.message;
+    if (stationsQuery.error) return describeError(stationsQuery.error);
+    if (connectionsQuery.error) return describeError(connectionsQuery.error);
     return null;
   }, [stationsQuery.error, connectionsQuery.error]);
 
-  const refreshConnections = useCallback(
-    () => { connectionsQuery.refetch(); },
-    [connectionsQuery],
-  );
+  // refetch ignores `enabled`: without stations the connections query would
+  // run with missing names, so load the stations first.
+  const refreshConnections = useCallback(() => {
+    if (startLat === undefined || startLng === undefined) return;
+    if (!stationsQuery.data || stationsQuery.isError) {
+      stationsQuery.refetch();
+    } else {
+      connectionsQuery.refetch();
+    }
+  }, [startLat, startLng, stationsQuery, connectionsQuery]);
 
   const sbbLink = useMemo(() => {
     if (!startStation || !endStation) return null;
