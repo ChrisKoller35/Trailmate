@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { supabase } from '../lib/supabase';
@@ -79,9 +79,12 @@ export default function RecordingHistoryScreen() {
     }
   }, [userId]);
 
-  useEffect(() => {
-    fetchRecordings();
-  }, [fetchRecordings]);
+  // Beim Zurückkommen neu laden, damit eine gelöschte Tour verschwindet
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecordings();
+    }, [fetchRecordings]),
+  );
 
   const handleShare = useCallback(
     (item: Recording) => {
@@ -129,6 +132,8 @@ export default function RecordingHistoryScreen() {
   const renderItem = useCallback(
     ({ item }: { item: Recording }) => (
       <Pressable
+        onPress={() => router.push({ pathname: '/recording-detail', params: { id: item.id } })}
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.card,
           item.is_hidden && styles.cardHidden,
@@ -202,7 +207,7 @@ export default function RecordingHistoryScreen() {
         <Text style={styles.cardDate}>{formatDate(item.started_at)}</Text>
       </Pressable>
     ),
-    [handleShare, handleToggleHidden],
+    [handleShare, handleToggleHidden, router],
   );
 
   const keyExtractor = useCallback((item: Recording) => item.id, []);
