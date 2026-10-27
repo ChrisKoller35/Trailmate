@@ -17,6 +17,10 @@ describe('getAuthRedirect', () => {
     it('lässt den Live-Tracking-Link offen', () => {
       expect(redirect(false, false, 'track')).toBeNull();
     });
+
+    it('lässt den Passwort-Reset offen', () => {
+      expect(redirect(false, false, 'reset-password')).toBeNull();
+    });
   });
 
   describe('Session ohne Onboarding', () => {
@@ -32,6 +36,10 @@ describe('getAuthRedirect', () => {
     it('lässt den Live-Tracking-Link offen', () => {
       expect(redirect(true, false, 'track')).toBeNull();
     });
+
+    it('lässt den Passwort-Reset offen', () => {
+      expect(redirect(true, false, 'reset-password')).toBeNull();
+    });
   });
 
   describe('Session mit Onboarding', () => {
@@ -44,6 +52,7 @@ describe('getAuthRedirect', () => {
       expect(redirect(true, true, '(tabs)')).toBeNull();
       expect(redirect(true, true, 'settings')).toBeNull();
       expect(redirect(true, true, 'track')).toBeNull();
+      expect(redirect(true, true, 'reset-password')).toBeNull();
     });
   });
 });
