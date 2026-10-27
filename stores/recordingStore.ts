@@ -124,8 +124,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const { trackPoints, startedAt, totalPauseDuration, pausedAt, manualPauses } = get();
     if (trackPoints.length === 0 || !startedAt) return;
 
-    const distance = calculateTotalDistance(trackPoints);
-    const { gain, loss } = calculateElevation(trackPoints);
+    const distance = calculateTotalDistance(trackPoints, manualPauses);
+    const { gain, loss } = calculateElevation(trackPoints, manualPauses);
 
     const now = Date.now();
     const totalDurationS = (now - startedAt) / 1000;

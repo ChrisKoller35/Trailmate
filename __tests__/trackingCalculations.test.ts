@@ -5,6 +5,7 @@ import {
   calculateAvgSpeed,
   applyTrailingDriftCorrection,
   calculateAutoPauseSeconds,
+  spansManualPause,
 } from '../lib/trackingCalculations';
 import type { TrackPoint } from '../types';
 
@@ -141,6 +142,47 @@ describe('calculateElevation', () => {
     const { gain, loss } = calculateElevation(points);
     expect(gain).toBeCloseTo(200, 1);
     expect(loss).toBeCloseTo(150, 1);
+  });
+});
+
+// ─── Manuelle Pausen (Bahnfahrt) ─────────────────────────────────────────────
+
+describe('manual pauses in distance and elevation', () => {
+  const T0 = 1_700_000_000_000;
+  const STEP_DEG = 0.0009; // ≈ 100 m nach Norden
+  const TRAIN_DEG = 0.027; // ≈ 3 km nach Norden
+
+  // Zwei Schritte gehen, Pause mit 3 km und 600 Hm Bahnfahrt, zwei Schritte gehen.
+  const points = [
+    makePoint({ latitude: 46.8, longitude: 8.2, altitude: 1000, timestamp: T0 }),
+    makePoint({ latitude: 46.8 + STEP_DEG, longitude: 8.2, altitude: 1010, timestamp: T0 + 60_000 }),
+    makePoint({ latitude: 46.8 + STEP_DEG + TRAIN_DEG, longitude: 8.2, altitude: 1610, timestamp: T0 + 1_260_000 }),
+    makePoint({ latitude: 46.8 + 2 * STEP_DEG + TRAIN_DEG, longitude: 8.2, altitude: 1620, timestamp: T0 + 1_320_000 }),
+  ];
+  const pause = { start: T0 + 90_000, end: T0 + 1_230_000 };
+  const walked = calculateDistance(46.8, 8.2, 46.8 + STEP_DEG, 8.2) * 2;
+
+  it('does not count the train ride as distance or ascent', () => {
+    expect(calculateTotalDistance(points, [pause])).toBeCloseTo(walked, 0);
+    expect(calculateElevation(points, [pause])).toEqual({ gain: 20, loss: 0 });
+  });
+
+  it('keeps the old result without pauses', () => {
+    expect(calculateTotalDistance(points, [])).toBe(calculateTotalDistance(points));
+    expect(calculateTotalDistance(points)).toBeGreaterThan(walked + 2900);
+    expect(calculateElevation(points)).toEqual({ gain: 620, loss: 0 });
+  });
+
+  it('ignores an open pause', () => {
+    const open = [{ start: T0 + 90_000, end: null }];
+    expect(calculateTotalDistance(points, open)).toBe(calculateTotalDistance(points));
+    expect(calculateElevation(points, open)).toEqual(calculateElevation(points));
+  });
+
+  it('spansManualPause only matches a closed pause fully between both times', () => {
+    expect(spansManualPause(T0, T0 + 100, [{ start: T0 + 10, end: T0 + 90 }])).toBe(true);
+    expect(spansManualPause(T0, T0 + 100, [{ start: T0 - 10, end: T0 + 90 }])).toBe(false);
+    expect(spansManualPause(T0, T0 + 100, [{ start: T0 + 10, end: null }])).toBe(false);
   });
 });
 

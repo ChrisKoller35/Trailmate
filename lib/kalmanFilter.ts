@@ -24,4 +24,11 @@ export default class KalmanFilter {
 
     return { lat: this.lat, lng: this.lng };
   }
+
+  // Forget the previous position, e.g. for a new tour or after a long GPS gap
+  reset(): void {
+    this.lat = 0;
+    this.lng = 0;
+    this.variance = -1;
+  }
 }

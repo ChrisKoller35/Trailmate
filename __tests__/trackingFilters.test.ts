@@ -34,6 +34,14 @@ describe('KalmanFilter', () => {
     expect(Number.isFinite(result.lat)).toBe(true);
     expect(Number.isFinite(result.lng)).toBe(true);
   });
+
+  it('returns the next measurement unchanged after reset', () => {
+    const filter = new KalmanFilter();
+    filter.process(46.8, 8.2, 10);
+    filter.process(46.801, 8.201, 10);
+    filter.reset();
+    expect(filter.process(47.0, 8.5, 10)).toEqual({ lat: 47.0, lng: 8.5 });
+  });
 });
 
 // ─── PauseDetector ────────────────────────────────────────────────────────────
