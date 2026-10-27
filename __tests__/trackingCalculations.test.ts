@@ -179,9 +179,21 @@ describe('manual pauses in distance and elevation', () => {
     expect(calculateElevation(points, open)).toEqual(calculateElevation(points));
   });
 
-  it('spansManualPause only matches a closed pause fully between both times', () => {
+  it('also skips steps to and from a cached point stamped inside the pause', () => {
+    // Nach «Weiter» liefert das GPS zuerst einen Standort von der Bergstation,
+    // gemessen kurz vor dem Ende der Pause.
+    const cached = makePoint({ latitude: 46.8 + STEP_DEG + TRAIN_DEG, longitude: 8.2, altitude: 1610, timestamp: T0 + 1_225_000 });
+    const withCached = [points[0], points[1], cached, ...points.slice(2)];
+    expect(calculateTotalDistance(withCached, [pause])).toBeCloseTo(walked, 0);
+    expect(calculateElevation(withCached, [pause])).toEqual({ gain: 20, loss: 0 });
+  });
+
+  it('spansManualPause matches every step that overlaps a closed pause', () => {
     expect(spansManualPause(T0, T0 + 100, [{ start: T0 + 10, end: T0 + 90 }])).toBe(true);
-    expect(spansManualPause(T0, T0 + 100, [{ start: T0 - 10, end: T0 + 90 }])).toBe(false);
+    expect(spansManualPause(T0, T0 + 50, [{ start: T0 + 10, end: T0 + 90 }])).toBe(true);
+    expect(spansManualPause(T0 + 50, T0 + 100, [{ start: T0 + 10, end: T0 + 90 }])).toBe(true);
+    expect(spansManualPause(T0, T0 + 10, [{ start: T0 + 10, end: T0 + 90 }])).toBe(false);
+    expect(spansManualPause(T0 + 90, T0 + 100, [{ start: T0 + 10, end: T0 + 90 }])).toBe(false);
     expect(spansManualPause(T0, T0 + 100, [{ start: T0 + 10, end: null }])).toBe(false);
   });
 });

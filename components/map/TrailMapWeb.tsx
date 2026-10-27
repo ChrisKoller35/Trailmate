@@ -57,6 +57,8 @@ export function TrailMapWeb({
   const mapLoadedRef = useRef(false);
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
+  // Neueste Route für den load-Handler, falls sie vor dem Laden der Karte ankommt
+  const routeRef = useRef(routeGeoJSON);
 
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function TrailMapWeb({
       // Route source (empty initially)
       map.addSource('route-source', {
         type: 'geojson',
-        data: routeGeoJSON ?? EMPTY_FC,
+        data: routeRef.current ?? EMPTY_FC,
       });
       map.addLayer({
         id: 'route-line',
@@ -131,6 +133,7 @@ export function TrailMapWeb({
 
   // Update route
   useEffect(() => {
+    routeRef.current = routeGeoJSON;
     const map = mapRef.current;
     if (!map || !mapLoadedRef.current) return;
     const src = map.getSource('route-source') as maplibregl.GeoJSONSource | undefined;
