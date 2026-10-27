@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { showErrorToast } from '../../lib/toast';
+import { normalizeRouteId } from '../../lib/routeId';
+import { lineBounds } from '../../lib/geoBounds';
+import { useRouteGeometry } from '../../hooks/useRouteGeometry';
 import { Colors } from '../../constants';
 import { TrailMap } from '../../components/map/TrailMap';
 import { RouteInfoPanel } from '../../components/map/RouteInfoPanel';
@@ -26,6 +30,10 @@ type PlanningMode = 'idle' | 'set-start' | 'set-end' | 'set-waypoint';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function MapScreen() {
+  const router = useRouter();
+  // Route, die die Routenseite mit «Auf Karte anzeigen» mitgibt
+  const params = useLocalSearchParams<{ routeId?: string }>();
+  const gezeigteRoute = useRouteGeometry(normalizeRouteId(params.routeId));
   const [planningMode, setPlanningMode] = useState<PlanningMode>('idle');
   const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
   const [endPoint, setEndPoint] = useState<[number, number] | null>(null);
@@ -41,6 +49,17 @@ export default function MapScreen() {
   const { saveRoute, isSaving } = useSaveRoute();
   // Zuletzt gespeichertes Ergebnis; eine neue oder gelöschte Route ist wieder speicherbar
   const [savedResult, setSavedResult] = useState<RouteResult | null>(null);
+
+  // Eine selbst berechnete Route hat Vorrang vor der gezeigten
+  const zeigtRoute = !routeResult && !!gezeigteRoute;
+  const routeBounds = useMemo(
+    () => (zeigtRoute && gezeigteRoute ? lineBounds(gezeigteRoute.geometry.coordinates) : null),
+    [zeigtRoute, gezeigteRoute],
+  );
+
+  const handleHideRoute = useCallback(() => {
+    router.setParams({ routeId: '' });
+  }, [router]);
 
   const handleMapPress = useCallback(
     (coordinate: [number, number]) => {
@@ -75,7 +94,8 @@ export default function MapScreen() {
     setWaypoints([]);
     clearRoute();
     setPlanningMode('idle');
-  }, [clearRoute]);
+    router.setParams({ routeId: '' });
+  }, [clearRoute, router]);
 
   const handlePlaceSelect = useCallback((place: Place) => {
     setSelectedPlace(place);
@@ -111,11 +131,12 @@ export default function MapScreen() {
       {/* Map */}
       <TrailMap
         onPress={handleMapPress}
-        routeGeoJSON={routeResult?.geojson ?? null}
+        routeGeoJSON={routeResult?.geojson ?? gezeigteRoute}
         startPoint={startPoint}
         endPoint={endPoint}
         showHikingTrails={showHikingTrails}
         focusPoint={focusPoint}
+        fitBounds={routeBounds}
       />
 
       {/* Ortssuche (links neben der Top Bar) */}
@@ -146,6 +167,19 @@ export default function MapScreen() {
 
       {/* Planning Controls */}
       <View style={styles.planningBar}>
+        {zeigtRoute && (
+          <View style={styles.placeCard}>
+            <Ionicons name="map-outline" size={16} color={Colors.primary} />
+            <Text style={[styles.placeName, styles.placeInfo]} numberOfLines={1}>
+              Route von der Routenseite
+            </Text>
+            <Pressable style={styles.planBtn} onPress={handleHideRoute} accessibilityRole="button">
+              <Ionicons name="eye-off-outline" size={14} color={Colors.textSecondary} />
+              <Text style={styles.planBtnText}>Ausblenden</Text>
+            </Pressable>
+          </View>
+        )}
+
         {selectedPlace && (
           <View style={styles.placeCard}>
             <View style={styles.placeInfo}>

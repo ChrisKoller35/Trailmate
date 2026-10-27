@@ -60,6 +60,13 @@ export default function SettingsScreen() {
           onPress={() => router.push('/edit-profile')}
         />
 
+        {/* Offline maps */}
+        <SettingsItem
+          icon="cloud-download-outline"
+          label="Offline-Karten"
+          onPress={() => router.push('/offline-maps')}
+        />
+
         {/* Blocked users */}
         <SettingsItem
           icon="ban-outline"

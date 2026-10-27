@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,15 @@ export default function TrackScreen() {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  // Neuer Punkt nur bei neuem Standort, damit die Karte nicht bei jedem
+  // Neuzeichnen (alle 30 s) wieder hinfliegt. Vor den frühen return (Hook-Regeln).
+  const lng = data?.last_location?.longitude;
+  const lat = data?.last_location?.latitude;
+  const personPoint = useMemo<[number, number] | null>(
+    () => (lng != null && lat != null ? [lng, lat] : null),
+    [lng, lat],
+  );
 
   const header = <Stack.Screen options={{ headerShown: true, title: '📍 Live-Standort' }} />;
 
@@ -153,7 +162,7 @@ export default function TrackScreen() {
         {location ? (
           <>
             <View style={styles.mapContainer}>
-              <TrailMap startPoint={[location.longitude, location.latitude]} />
+              <TrailMap focusPoint={personPoint} focusZoom={14} />
             </View>
             <Pressable style={styles.button} onPress={openInMaps}>
               <Ionicons name="navigate-outline" size={18} color={Colors.textOnPrimary} />

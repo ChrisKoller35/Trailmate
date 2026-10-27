@@ -19,6 +19,7 @@ import {
   mapLibreError,
 } from '../../lib/maplibre';
 import { SWISSTOPO_STYLE_JSON, SWISSTOPO_HIKING_TILES } from '../../lib/mapStyle';
+import { boundsKey } from '../../lib/geoBounds';
 
 interface TrailMapProps {
   children?: React.ReactNode;
@@ -30,6 +31,8 @@ interface TrailMapProps {
   /** Ort, zu dem die Karte fliegt und einen Such-Marker zeigt ([Länge, Breite]) */
   focusPoint?: [number, number] | null;
   focusZoom?: number;
+  /** Grenzen, auf die sich die Karte einmal ausrichtet, wenn sie sich ändern */
+  fitBounds?: { ne: [number, number]; sw: [number, number] } | null;
   style?: ViewStyle;
 }
 
@@ -42,11 +45,19 @@ export function TrailMap({
   showHikingTrails = true,
   focusPoint,
   focusZoom = 13,
+  fitBounds,
   style,
 }: TrailMapProps) {
   const mapRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+
+  // Auf Grenzen ausrichten, nur wenn sie sich wirklich ändern
+  const fitKey = boundsKey(fitBounds);
+  useEffect(() => {
+    if (!fitBounds || Platform.OS === 'web') return;
+    cameraRef.current?.fitBounds(fitBounds.ne, fitBounds.sw, 48, 800);
+  }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zum gesuchten Ort fliegen
   useEffect(() => {
@@ -79,6 +90,7 @@ export function TrailMap({
           showHikingTrails={showHikingTrails}
           focusPoint={focusPoint}
           focusZoom={focusZoom}
+          fitBounds={fitBounds}
           style={style}
         >
           {children}
