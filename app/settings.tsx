@@ -74,6 +74,13 @@ export default function SettingsScreen() {
           onPress={() => router.push('/blocked-users')}
         />
 
+        {/* Data protection */}
+        <SettingsItem
+          icon="shield-checkmark-outline"
+          label="Datenschutz"
+          onPress={() => router.push('/privacy')}
+        />
+
         {/* Account */}
         <View style={styles.item}>
           <Ionicons name="mail-outline" size={22} color={Colors.text} style={styles.itemIcon} />
