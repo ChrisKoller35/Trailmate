@@ -1,21 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { ExpoSecureStoreAdapter } from './secureStoreAdapter';
+import { getSupabaseConfigError } from './supabaseConfig';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
+// Variablen wörtlich ausschreiben, sonst setzt Expo sie beim Bauen nicht ein.
+export const supabaseConfigError = getSupabaseConfigError(
+  process.env.EXPO_PUBLIC_SUPABASE_URL,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+);
 
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
-    return SecureStore.getItemAsync(key);
-  },
-  setItem: (key: string, value: string) => {
-    SecureStore.setItemAsync(key, value);
-  },
-  removeItem: (key: string) => {
-    SecureStore.deleteItemAsync(key);
-  },
-};
+if (supabaseConfigError) {
+  console.error(`[supabase] Konfiguration unvollständig: ${supabaseConfigError}`);
+}
+
+// Der Client wird trotzdem erzeugt, damit Importe nicht abstürzen;
+// app/_layout.tsx zeigt bei supabaseConfigError statt der App einen Hinweis.
+const supabaseUrl = supabaseConfigError
+  ? 'https://placeholder.supabase.co'
+  : (process.env.EXPO_PUBLIC_SUPABASE_URL as string);
+const supabaseAnonKey = supabaseConfigError
+  ? 'placeholder'
+  : (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

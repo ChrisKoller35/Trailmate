@@ -5,7 +5,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '../lib/queryClient';
 import { useAuthStore } from '../stores/authStore';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigError } from '../lib/supabase';
+import { getAuthRedirect, shouldClearSession } from '../lib/authRedirect';
 import { useRegisterPushToken } from '../hooks/useNotifications';
 import { ToastHost } from '../components/ui/ToastHost';
 import type { User } from '../types';
@@ -52,6 +53,12 @@ function useAuthListener() {
   const registerPushToken = useRegisterPushToken();
 
   useEffect(() => {
+    // Ohne Konfiguration nicht mit Supabase verbinden; RootLayout zeigt den Hinweis
+    if (supabaseConfigError) {
+      setLoading(false);
+      return;
+    }
+
     // Safety timeout: if auth check takes >3s, unblock the app
     const timeout = setTimeout(() => setLoading(false), 3000);
 
@@ -84,15 +91,8 @@ function useAuthListener() {
     try {
       const result = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          // Auto-logout on token refresh failure
-          if (event === 'TOKEN_REFRESHED' && !session) {
-            setSession(null);
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-            return;
-          }
-          if (event === 'SIGNED_OUT') {
+          // Abgemeldet oder Token-Refresh gescheitert
+          if (shouldClearSession(event, !!session)) {
             setSession(null);
             setUser(null);
             setProfile(null);
@@ -136,27 +136,15 @@ function useProtectedRoute() {
   const { session, isLoading, hasCompletedOnboarding } = useAuthStore();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || supabaseConfigError) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inOnboardingGroup = segments[0] === '(onboarding)';
-    // Live-Tracking-Empfänger brauchen weder Konto noch Onboarding
-    if (segments[0] === 'track') return;
-
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      if (hasCompletedOnboarding) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/(onboarding)');
-      }
-    } else if (session && !hasCompletedOnboarding && !inOnboardingGroup && !inAuthGroup) {
-      router.replace('/(onboarding)');
-    } else if (session && hasCompletedOnboarding && inOnboardingGroup) {
-      router.replace('/(tabs)');
-    }
-  }, [session, segments, isLoading, hasCompletedOnboarding]);
+    const target = getAuthRedirect({
+      hasSession: !!session,
+      hasCompletedOnboarding,
+      firstSegment: segments[0],
+    });
+    if (target) router.replace(target);
+  },[session, segments, isLoading, hasCompletedOnboarding]);
 }
 
 export default function RootLayout() {
@@ -164,6 +152,21 @@ export default function RootLayout() {
   useProtectedRoute();
 
   const { isLoading } = useAuthStore();
+
+  if (supabaseConfigError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#F0F7F0' }}>
+        <Text style={{ fontSize: 40, marginBottom: 16 }}>⛰️</Text>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#2D5A27', marginBottom: 12, textAlign: 'center' }}>
+          TrailMate ist nicht fertig eingerichtet
+        </Text>
+        <Text style={{ fontSize: 15, color: '#c00', textAlign: 'center', marginBottom: 12 }}>{supabaseConfigError}</Text>
+        <Text style={{ fontSize: 14, color: '#333', textAlign: 'center' }}>
+          Trage die Werte in die Datei .env ein (Vorlage: .env.example) und starte die App neu.
+        </Text>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
