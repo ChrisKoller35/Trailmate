@@ -10,8 +10,10 @@ export function getAuthRedirect(state: {
   firstSegment: string | undefined;
 }): AuthRedirectTarget | null {
   const { hasSession, hasCompletedOnboarding, firstSegment } = state;
-  // Live-Tracking-Empfänger brauchen weder Konto noch Onboarding
-  if (firstSegment === 'track') return null;
+  // Live-Tracking-Empfänger brauchen weder Konto noch Onboarding. Der
+  // Passwort-Reset setzt die Session erst aus dem Link und muss danach
+  // offen bleiben, bis das neue Passwort gespeichert ist.
+  if (firstSegment === 'track' || firstSegment === 'reset-password') return null;
 
   const inAuthGroup = firstSegment === '(auth)';
   const inOnboardingGroup = firstSegment === '(onboarding)';
