@@ -13,7 +13,6 @@ export default function HighlightToursScreen() {
   const { data, isLoading, isError, isRefetching, refetch } = useHighlightEditor();
   const { saveHighlights, isSaving } = useSaveHighlights();
   const [selected, setSelected] = useState<string[] | null>(null);
-
   // Bis zur ersten Änderung gilt die gespeicherte Auswahl.
   const current = selected ?? data?.selected ?? [];
 
@@ -82,12 +81,7 @@ export default function HighlightToursScreen() {
                 </Text>
               </View>
               {index > 0 && (
-                <Pressable
-                  onPress={() => setSelected(moveHighlightUp(current, item.id))}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Nach oben"
-                >
+                <Pressable onPress={() => setSelected(moveHighlightUp(current, item.id))} hitSlop={8} accessibilityLabel="Nach oben">
                   <Ionicons name="arrow-up" size={22} color={Colors.primary} />
                 </Pressable>
               )}
@@ -108,26 +102,9 @@ const styles = StyleSheet.create({
   message: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center' },
   list: { padding: 16, gap: 8 },
   hint: { fontSize: 14, color: Colors.textSecondary, marginBottom: 8 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.borderLight, backgroundColor: Colors.surface },
   rowSelected: { borderColor: Colors.primary },
-  badge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: Colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  badge: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center' },
   badgeSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   badgeText: { color: '#fff', fontWeight: '700' },
   info: { flex: 1 },

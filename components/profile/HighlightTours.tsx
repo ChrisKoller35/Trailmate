@@ -60,23 +60,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.text,
   },
-  editText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
+  editText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
   scrollContent: {
     paddingHorizontal: 16,
     gap: 12,
@@ -114,15 +104,6 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     marginTop: 8,
   },
-  emptyButton: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.primary,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  emptyButton: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: Colors.primary },
+  emptyButtonText: { color: '#fff', fontWeight: '600' },
 });
