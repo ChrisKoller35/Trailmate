@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import { useAuthStore } from '../stores/authStore';
 import { formatDuration, formatDistance } from '../lib/trackingCalculations';
 import { exportRecordingAsGPX } from '../lib/gpxExport';
 import { ElevationProfile } from '../components/map/ElevationProfile';
+import { buildTrackElevationProfile } from '../lib/elevationProfile';
 import {
   buildBadgeShareText,
   buildTourShareText,
@@ -73,6 +74,7 @@ export default function TourSummaryScreen() {
 
   const trackPoints = useRecordingStore((s) => s.trackPoints);
   const currentStats = useRecordingStore((s) => s.currentStats);
+  const manualPauses = useRecordingStore((s) => s.manualPauses);
   const startedAt = useRecordingStore((s) => s.startedAt);
   const routeId = useRecordingStore((s) => s.routeId);
   const reset = useRecordingStore((s) => s.reset);
@@ -98,6 +100,12 @@ export default function TourSummaryScreen() {
   }, [trackPoints]);
 
   const bounds = React.useMemo(() => computeBounds(trackPoints), [trackPoints]);
+
+  // Gleiche Distanz wie currentStats.distance (ohne Schritte über manuelle Pausen).
+  const elevationProfile = useMemo(
+    () => buildTrackElevationProfile(trackPoints, manualPauses),
+    [trackPoints, manualPauses],
+  );
 
   // Speichert die Tour einmal; ein zweiter Tipp während des Speicherns wird ignoriert.
   const saveOnce = useCallback(async () => {
@@ -379,23 +387,7 @@ export default function TourSummaryScreen() {
           <View style={styles.elevationCard}>
             <Text style={styles.elevationTitle}>Höhenprofil</Text>
             <ElevationProfile
-              data={trackPoints.reduce<{ distance: number; elevation: number }[]>(
-                (acc, p, i) => {
-                  if (p.altitude == null) return acc;
-                  const prevDist = acc.length > 0 ? acc[acc.length - 1].distance : 0;
-                  if (i === 0) {
-                    acc.push({ distance: 0, elevation: p.altitude });
-                  } else {
-                    const prev = trackPoints[i - 1];
-                    const dx = Math.abs(p.longitude - prev.longitude) * 111320 * Math.cos((p.latitude * Math.PI) / 180);
-                    const dy = Math.abs(p.latitude - prev.latitude) * 110540;
-                    const segDist = Math.sqrt(dx * dx + dy * dy);
-                    acc.push({ distance: prevDist + segDist, elevation: p.altitude });
-                  }
-                  return acc;
-                },
-                [],
-              )}
+              data={elevationProfile}
               width={340}
               height={160}
             />
