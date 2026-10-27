@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import { supabase } from './supabase';
+import { isTrustedStorageUrl } from './trustedFileUrl';
 import type { Route } from '../types';
 import type { TrackPoint } from '../types';
 
@@ -8,8 +9,8 @@ import type { TrackPoint } from '../types';
  * Returns the file URI for sharing.
  */
 export async function exportRouteAsGPX(route: Route): Promise<string | null> {
-  // If route has a stored GPX file, fetch it
-  if (route.gpx_url) {
+  // Only fetch a stored GPX file from our own Supabase storage
+  if (route.gpx_url && isTrustedStorageUrl(route.gpx_url, process.env.EXPO_PUBLIC_SUPABASE_URL)) {
     try {
       const response = await fetch(route.gpx_url);
       if (response.ok) {
