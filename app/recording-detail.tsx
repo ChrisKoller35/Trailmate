@@ -84,7 +84,7 @@ export default function RecordingDetailScreen() {
             <Text style={styles.mapPlaceholderText}>Für diese Tour gibt es keine Linie.</Text>
           </View>
         ) : Platform.OS === 'web' || !mapLibreAvailable ? (
-          <TrailMap style={styles.map} routeGeoJSON={line} />
+          <TrailMap style={styles.map} routeGeoJSON={line} fitBounds={bounds} />
         ) : (
           <MapView style={styles.map} mapStyle={SWISSTOPO_STYLE_JSON} logoEnabled={false} attributionEnabled={false} rotateEnabled={false} pitchEnabled={false}>
             <Camera

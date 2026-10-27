@@ -26,10 +26,12 @@ export function calculateDistance(
 }
 
 // Während einer manuellen Pause nimmt der Tracking-Service keine Punkte an.
-// Ein Schritt über eine abgeschlossene Pause (z. B. Bahnfahrt) ist darum keine
-// Wanderstrecke.
+// Ein Schritt, der eine abgeschlossene Pause berührt (z. B. Bahnfahrt), ist darum
+// keine Wanderstrecke. Nach «Weiter» startet das GPS neu und liefert oft zuerst
+// einen zwischengespeicherten Standort mit einer Zeit aus der Pause; darum zählt
+// schon die Überlappung, nicht erst ein Schritt über die ganze Pause.
 export function spansManualPause(t0: number, t1: number, manualPauses: ManualPause[]): boolean {
-  return manualPauses.some((p) => p.end !== null && t0 <= p.start && t1 >= p.end);
+  return manualPauses.some((p) => p.end !== null && t0 < p.end && t1 > p.start);
 }
 
 export function calculateTotalDistance(
