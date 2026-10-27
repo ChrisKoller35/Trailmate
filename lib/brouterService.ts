@@ -36,8 +36,9 @@ function haversineDistance(
 
 /**
  * Extract elevation stats and profile from 3D GeoJSON coordinates.
+ * Profile distances are cumulative metres from the start.
  */
-function analyzeElevation(
+export function analyzeElevation(
   coords: number[][],
 ): Pick<BRouterResult, 'elevation_gain_m' | 'elevation_loss_m' | 'max_elevation_m' | 'elevationProfile'> {
   let gain = 0;
@@ -75,7 +76,7 @@ function analyzeElevation(
       cumulativeDistance - lastProfileDist >= 100
     ) {
       profile.push({
-        distance: Math.round(cumulativeDistance) / 1000, // km
+        distance: Math.round(cumulativeDistance), // metres
         elevation: Math.round(elev),
       });
       lastProfileDist = cumulativeDistance;
