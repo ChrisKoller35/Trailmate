@@ -1,19 +1,36 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 
 interface HighlightToursProps {
   highlights: { id?: string; title: string | null }[];
+  onEdit?: () => void;
 }
 
-export default function HighlightTours({ highlights }: HighlightToursProps) {
+export default function HighlightTours({ highlights, onEdit }: HighlightToursProps) {
+  const header = (
+    <View style={styles.headerRow}>
+      <Text style={styles.sectionTitle}>Highlight-Touren</Text>
+      {onEdit && (
+        <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.editText}>Bearbeiten</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
   if (highlights.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Highlight-Touren</Text>
+        {header}
         <View style={styles.emptyContainer}>
           <Ionicons name="trail-sign-outline" size={32} color={Colors.textLight} />
           <Text style={styles.emptyText}>Keine Highlight-Touren</Text>
+          {onEdit && (
+            <Pressable style={styles.emptyButton} onPress={onEdit} accessibilityRole="button">
+              <Text style={styles.emptyButtonText}>Touren auswählen</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );
@@ -21,7 +38,7 @@ export default function HighlightTours({ highlights }: HighlightToursProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Highlight-Touren</Text>
+      {header}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {highlights.slice(0, 5).map((item, index) => (
           <View key={item.id ?? index} style={styles.card}>
@@ -43,12 +60,22 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.text,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+  },
+  editText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -86,5 +113,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textLight,
     marginTop: 8,
+  },
+  emptyButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
