@@ -5,6 +5,7 @@ import {
   calculateElevation,
   calculateAvgSpeed,
   calculateAutoPauseSeconds,
+  applyTrailingDriftCorrection,
 } from '../lib/trackingCalculations';
 import type { ManualPause } from '../lib/trackingCalculations';
 import {
@@ -46,7 +47,14 @@ interface RecordingState {
   updateStats: () => void;
   setSteps: (steps: number) => void;
   reset: () => void;
-  recoverFromCrash: (recordingId: string) => Promise<void>;
+  recoverFromCrash: (recordingId: string) => Promise<boolean>;
+  resumeAfterCrash: (recordingId: string) => Promise<boolean>;
+}
+
+// Eine unfertige Tour ohne Punkte lohnt keine Zusammenfassung
+async function discardEmptyRecording(recordingId: string): Promise<void> {
+  await deleteTrackPoints(recordingId);
+  await setActiveRecordingId(null);
 }
 
 const initialStats = {
@@ -174,11 +182,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   },
 
   recoverFromCrash: async (recordingId: string) => {
-    const points = await loadTrackPoints(recordingId);
-    if (points.length === 0) {
-      await setActiveRecordingId(null);
-      return;
+    const loaded = await loadTrackPoints(recordingId);
+    if (loaded.length === 0) {
+      await discardEmptyRecording(recordingId);
+      return false;
     }
+    // Wie beim normalen Beenden den ruhenden Nachlauf abschneiden
+    const corrected = applyTrailingDriftCorrection(loaded);
+    const points = corrected.length > 0 ? corrected : loaded;
     const distance = calculateTotalDistance(points);
     const { gain, loss } = calculateElevation(points);
     const startedAt = points[0].timestamp;
@@ -208,5 +219,32 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         steps: 0,
       },
     });
+    return true;
+  },
+
+  resumeAfterCrash: async (recordingId: string) => {
+    const points = await loadTrackPoints(recordingId);
+    if (points.length === 0) {
+      await discardEmptyRecording(recordingId);
+      return false;
+    }
+    // Die Zeit ohne App zählt als Pause: weder Dauer noch die gerade Linie
+    // über die Lücke fliessen in die Werte ein
+    const lastTimestamp = points[points.length - 1].timestamp;
+    const now = Date.now();
+    set({
+      status: 'recording',
+      recordingId,
+      routeId: null,
+      trackPoints: points,
+      startedAt: points[0].timestamp,
+      pausedAt: null,
+      totalPauseDuration: Math.max(0, now - lastTimestamp),
+      manualPauses: [{ start: lastTimestamp, end: now }],
+      manualPauseActive: false,
+      currentStats: { ...initialStats },
+    });
+    get().updateStats();
+    return true;
   },
 }));
