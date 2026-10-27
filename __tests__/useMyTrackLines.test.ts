@@ -50,7 +50,6 @@ interface Options {
   queryFn: () => Promise<{ count: number; collection: { features: { properties: { id: string } }[] } }>;
 }
 
-const run = (enabled: boolean) => useMyTrackLines(enabled) as unknown as Options;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -63,16 +62,16 @@ beforeEach(() => {
 
 describe('useMyTrackLines', () => {
   it('is enabled only when asked and signed in', () => {
-    expect(run(true)).toMatchObject({ queryKey: ['my-track-lines', 'me'], enabled: true });
-    expect(run(false).enabled).toBe(false);
+    expect(useMyTrackLines(true)).toMatchObject({ queryKey: ['my-track-lines', 'me'], enabled: true });
+    expect(useMyTrackLines(false)).toMatchObject({ enabled: false });
     mockUserId = null;
-    expect(run(true).enabled).toBe(false);
+    expect(useMyTrackLines(true)).toMatchObject({ enabled: false });
   });
 
   it('loads the own latest 50 recordings with a line, newest first', async () => {
     mockData = [{ id: 'r1', geom: { type: 'LineString', coordinates: [[8, 47], [8.1, 47.1]] } }];
 
-    const result = await run(true).queryFn();
+    const result = await (useMyTrackLines(true) as unknown as Options).queryFn();
 
     expect(mockRecorded).toEqual([{
       table: 'recordings',
@@ -90,6 +89,6 @@ describe('useMyTrackLines', () => {
 
   it('throws when the query fails', async () => {
     mockError = { code: '500', message: 'boom' };
-    await expect(run(true).queryFn()).rejects.toEqual(mockError);
+    await expect((useMyTrackLines(true) as unknown as Options).queryFn()).rejects.toEqual(mockError);
   });
 });
