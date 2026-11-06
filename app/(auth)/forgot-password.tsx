@@ -54,7 +54,7 @@ export default function ForgotPasswordScreen() {
           {sent ? (
             <View style={styles.successBox}>
               <Text style={styles.successText}>
-                ✅ E-Mail gesendet! Prüfe dein Postfach.
+                ✅ E-Mail gesendet! Öffne den Link auf diesem Gerät, dann kannst du ein neues Passwort setzen.
               </Text>
             </View>
           ) : (

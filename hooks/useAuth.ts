@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { useOnboardingStore } from '../stores/onboardingStore';
@@ -37,7 +38,11 @@ export function useAuth() {
   }
 
   async function resetPassword(email: string) {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+    // App: trailmate://reset-password, Web: <Adresse der Web-App>/reset-password.
+    // Beide müssen im Supabase-Dashboard als Redirect-URL eingetragen sein.
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: Linking.createURL('reset-password'),
+    });
     return { data, error };
   }
 
