@@ -5,15 +5,37 @@ const TRACK_KEY_PREFIX = '@trailmate-track-';
 const CHUNK_KEY_PREFIX = '@trailmate-chunk-';
 const CHUNK_META_PREFIX = '@trailmate-chunks-';
 const ACTIVE_RECORDING_KEY = '@trailmate-active-recording';
-const BATCH_SIZE = 50;
+// Bei einem Absturz gehen höchstens so viele Punkte bzw. so viel Zeit verloren
+const BATCH_SIZE = 10;
+const MAX_BUFFER_AGE_MS = 30_000;
 
 // In-memory buffer for batched writes
 const pointBuffer: Map<string, TrackPoint[]> = new Map();
+// Schreib- und Löschvorgänge einer Aufnahme laufen nacheinander, damit zwei
+// schnelle Schreibvorgänge nicht denselben Chunk-Zähler lesen
+const writeQueue: Map<string, Promise<void>> = new Map();
+
+function enqueue(recordingId: string, task: () => Promise<void>): Promise<void> {
+  const previous = writeQueue.get(recordingId) ?? Promise.resolve();
+  const next = previous.then(task).catch((error: unknown) => {
+    console.warn(`Track-Punkte von ${recordingId} konnten nicht gespeichert werden`, error);
+  });
+  writeQueue.set(recordingId, next);
+  void next.then(() => {
+    if (writeQueue.get(recordingId) === next) writeQueue.delete(recordingId);
+  });
+  return next;
+}
+
+/** Erfüllt, sobald alles bis jetzt Angestossene geschrieben ist. */
+export function whenWritten(recordingId: string): Promise<void> {
+  return writeQueue.get(recordingId) ?? Promise.resolve();
+}
 
 /**
  * Batched append: accumulates points in memory and flushes to a new
- * AsyncStorage chunk every BATCH_SIZE points. Avoids the O(n²) read-all
- * + write-all pattern.
+ * AsyncStorage chunk every BATCH_SIZE points or as soon as the buffer
+ * spans MAX_BUFFER_AGE_MS. Avoids the O(n²) read-all + write-all pattern.
  */
 export function batchAppendTrackPoint(
   recordingId: string,
@@ -23,10 +45,12 @@ export function batchAppendTrackPoint(
   buffer.push(point);
   pointBuffer.set(recordingId, buffer);
 
-  if (buffer.length >= BATCH_SIZE) {
-    const toFlush = [...buffer];
+  if (
+    buffer.length >= BATCH_SIZE ||
+    point.timestamp - buffer[0].timestamp >= MAX_BUFFER_AGE_MS
+  ) {
     pointBuffer.set(recordingId, []);
-    flushChunk(recordingId, toFlush);
+    void enqueue(recordingId, () => flushChunk(recordingId, buffer));
   }
 }
 
@@ -52,10 +76,11 @@ async function flushChunk(
 export async function flushRemainingPoints(
   recordingId: string
 ): Promise<void> {
+  await whenWritten(recordingId);
   const buffer = pointBuffer.get(recordingId);
   if (buffer && buffer.length > 0) {
-    await flushChunk(recordingId, buffer);
     pointBuffer.set(recordingId, []);
+    await enqueue(recordingId, () => flushChunk(recordingId, buffer));
   }
 }
 
@@ -87,24 +112,28 @@ export async function loadTrackPoints(
 }
 
 /**
- * Delete all stored track data for a recording.
+ * Delete all stored track data for a recording. Runs after every write that
+ * was already started, so no chunk of this recording is left behind.
  */
 export async function deleteTrackPoints(
   recordingId: string
 ): Promise<void> {
-  const metaKey = `${CHUNK_META_PREFIX}${recordingId}`;
-  const raw = await AsyncStorage.getItem(metaKey);
-
-  const keysToRemove = [metaKey];
-  if (raw !== null) {
-    const chunkCount = parseInt(raw, 10) + 1;
-    for (let i = 0; i < chunkCount; i++) {
-      keysToRemove.push(`${CHUNK_KEY_PREFIX}${recordingId}-${i}`);
-    }
-  }
-
-  await AsyncStorage.multiRemove(keysToRemove);
+  await whenWritten(recordingId);
   pointBuffer.delete(recordingId);
+  await enqueue(recordingId, async () => {
+    const metaKey = `${CHUNK_META_PREFIX}${recordingId}`;
+    const raw = await AsyncStorage.getItem(metaKey);
+
+    const keysToRemove = [metaKey];
+    if (raw !== null) {
+      const chunkCount = parseInt(raw, 10) + 1;
+      for (let i = 0; i < chunkCount; i++) {
+        keysToRemove.push(`${CHUNK_KEY_PREFIX}${recordingId}-${i}`);
+      }
+    }
+
+    await AsyncStorage.multiRemove(keysToRemove);
+  });
 }
 
 export async function getActiveRecordingId(): Promise<string | null> {

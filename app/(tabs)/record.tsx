@@ -84,22 +84,46 @@ export default function RecordScreen() {
     // Check for unfinished recording (crash recovery)
     getActiveRecordingId().then(async (activeId) => {
       if (!activeId || useRecordingStore.getState().status !== 'idle') return;
+      // Zwei Wahlmöglichkeiten: chooseAction hängt «Abbrechen» selbst an,
+      // Android zeigt höchstens drei Knöpfe. Abbrechen fragt beim nächsten Start wieder.
       const choice = await chooseAction(
         'Unfertige Tour gefunden',
         [
-          { label: 'Wiederherstellen', value: 'recover' },
-          { label: 'Verwerfen', value: 'discard', destructive: true },
+          { label: 'Fortsetzen', value: 'resume' },
+          { label: 'Beenden', value: 'finish' },
         ],
-        'Es wurde eine nicht abgeschlossene Aufzeichnung gefunden. Möchtest du sie wiederherstellen?',
+        'TrailMate wurde während einer Aufnahme beendet. Möchtest du die Tour fortsetzen oder beenden?',
       );
-      if (choice === 'discard') {
-        await setActiveRecordingId(null);
-      } else if (choice === 'recover') {
-        await useRecordingStore.getState().recoverFromCrash(activeId);
+      if (choice === null) return;
+      const store = useRecordingStore.getState();
+      const noPointsText = 'Die unfertige Tour hatte keine GPS-Punkte.';
+
+      if (choice === 'resume') {
+        if (await requestTrackingPermissions()) {
+          if (!(await store.resumeAfterCrash(activeId))) {
+            showInfoToast(noPointsText);
+            return;
+          }
+          const result = await startTracking();
+          if (result.success) return;
+          // Punkte nicht verlieren: als beendete Tour zur Zusammenfassung
+          useRecordingStore.getState().stopRecording();
+          showErrorToast(result.error ?? 'GPS konnte nicht gestartet werden.');
+          router.push('/tour-summary');
+          return;
+        }
+        showInfoToast('Ohne Standort im Hintergrund kann die Tour nicht weiterlaufen.');
+      }
+
+      // Die alte Standortaufgabe kann nach dem Neustart noch laufen
+      await stopTracking();
+      if (await store.recoverFromCrash(activeId)) {
         router.push('/tour-summary');
+      } else {
+        showInfoToast(noPointsText);
       }
     });
-  }, [router, requestLocationPermission]);
+  }, [router, requestLocationPermission, requestTrackingPermissions]);
 
   // Pedometer for step counting
   useEffect(() => {
