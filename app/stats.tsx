@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants';
 import { useAuthStore } from '../stores/authStore';
 import { useStats, useMonthlyActivity, usePersonalRecords, useYearComparison } from '../hooks/useStats';
+import { useMyTrackLines } from '../hooks/useMyTrackLines';
+import { TrailMap } from '../components/map/TrailMap';
 
 type StatsPeriod = 'week' | 'month' | 'season' | 'year' | 'all';
 
@@ -49,12 +51,14 @@ export default function StatsScreen() {
   const isPremium = profile?.is_premium ?? false;
 
   const [period, setPeriod] = useState<StatsPeriod>('month');
+  const [showTrackMap, setShowTrackMap] = useState(false);
   const currentYear = new Date().getFullYear();
 
   const { data: stats, isLoading } = useStats(userId, period);
   const { data: monthly } = useMonthlyActivity(userId, currentYear);
   const { data: records } = usePersonalRecords(userId);
   const { data: comparison } = useYearComparison(userId);
+  const trackLines = useMyTrackLines(showTrackMap);
 
   const maxTours = Math.max(...(monthly ?? []).map((m) => m.tours), 1);
 
@@ -181,13 +185,46 @@ export default function StatsScreen() {
           </View>
         )}
 
-        {/* Heatmap placeholder */}
+        {/* Own tours on a map, loaded only after a tap */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Heatmap</Text>
-          <View style={styles.placeholder}>
-            <Ionicons name="map-outline" size={32} color={Colors.textLight} />
-            <Text style={styles.placeholderText}>Heatmap coming soon</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Meine Touren auf der Karte</Text>
+          {!showTrackMap ? (
+            <View style={styles.mapCard}>
+              <Ionicons name="map-outline" size={32} color={Colors.textLight} />
+              <Text style={styles.mapHint}>Zeigt die Linien deiner letzten 50 Touren.</Text>
+              <Pressable style={styles.mapButton} onPress={() => setShowTrackMap(true)} accessibilityRole="button">
+                <Text style={styles.mapButtonText}>Karte laden</Text>
+              </Pressable>
+            </View>
+          ) : trackLines.isLoading || (trackLines.isError && trackLines.isRefetching) ? (
+            <View style={styles.mapCard}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : trackLines.isError || !trackLines.data ? (
+            <View style={styles.mapCard}>
+              <Text style={styles.mapHint}>Die Karte konnte nicht geladen werden.</Text>
+              <Pressable style={styles.mapButton} onPress={() => trackLines.refetch()} accessibilityRole="button">
+                <Text style={styles.mapButtonText}>Nochmal versuchen</Text>
+              </Pressable>
+            </View>
+          ) : trackLines.data.count === 0 ? (
+            <View style={styles.mapCard}>
+              <Text style={styles.mapHint}>Noch keine Touren mit Linie.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.mapContainer}>
+                <TrailMap
+                  style={styles.map}
+                  routeGeoJSON={trackLines.data.collection}
+                  fitBounds={trackLines.data.bounds}
+                />
+              </View>
+              <Text style={styles.mapCount}>
+                {trackLines.data.count} {trackLines.data.count === 1 ? 'Tour' : 'Touren'}
+              </Text>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -383,15 +420,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
-  placeholder: {
+  mapCard: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    padding: 32,
+    padding: 24,
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  placeholderText: {
+  mapHint: {
     fontSize: 14,
-    color: Colors.textLight,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  mapButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+  },
+  mapButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textOnPrimary,
+  },
+  mapContainer: {
+    height: 260,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: Colors.surfaceVariant,
+  },
+  map: {
+    flex: 1,
+  },
+  mapCount: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 8,
   },
 });
