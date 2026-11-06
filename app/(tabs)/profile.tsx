@@ -247,7 +247,7 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={18} color={Colors.textLight} />
         </Pressable>
 
-        <HighlightTours highlights={highlights} />
+        <HighlightTours highlights={highlights} onEdit={() => router.push('/highlight-tours')} />
 
         <BadgeShowcase badges={badges} onShowAll={() => router.push('/badges')} />
 
