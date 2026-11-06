@@ -9,7 +9,7 @@ import { showErrorToast } from '../lib/toast';
 import { useAuthStore } from '../stores/authStore';
 import type { Recording } from '../types';
 
-export type RecordingDetail = Omit<Recording, 'user_id' | 'route_id' | 'gpx_url' | 'finished_at'> & {
+export type RecordingDetail = Omit<Recording, 'user_id' | 'gpx_url' | 'finished_at'> & {
   geom: unknown;
 };
 
@@ -21,7 +21,7 @@ export function useRecordingDetail(id: string | null) {
     queryFn: async (): Promise<RecordingDetail | null> => {
       const { data, error } = await supabase
         .from('recordings')
-        .select('id, title, started_at, distance_m, elevation_gain_m, elevation_loss_m, duration_seconds, moving_time_seconds, avg_speed_kmh, steps, is_hidden, geom')
+        .select('id, title, started_at, distance_m, elevation_gain_m, elevation_loss_m, duration_seconds, moving_time_seconds, avg_speed_kmh, steps, is_hidden, route_id, geom')
         .eq('id', id as string)
         .eq('user_id', userId as string)
         .maybeSingle();

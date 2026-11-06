@@ -7,6 +7,7 @@ import { TrailMap } from '../components/map/TrailMap';
 import { Colors } from '../constants';
 import { SWISSTOPO_STYLE_JSON } from '../lib/mapStyle';
 import { useRecordingDetail, useDeleteRecording } from '../hooks/useRecordingDetail';
+import { usePublishRecording } from '../hooks/usePublishRecording';
 import { recordingLineFeature } from '../lib/recordingLine';
 import { lineBounds } from '../lib/geoBounds';
 import { formatDistance, formatDuration } from '../lib/trackingCalculations';
@@ -22,6 +23,7 @@ export default function RecordingDetailScreen() {
   const router = useRouter();
   const { data, isLoading, isError, refetch, isRefetching } = useRecordingDetail(id ?? null);
   const { deleteRecording, isDeleting } = useDeleteRecording();
+  const { publishRecording, isPublishing } = usePublishRecording();
 
   const line = useMemo(() => recordingLineFeature(data?.geom), [data?.geom]);
   const bounds = useMemo(() => (line ? lineBounds(line.geometry.coordinates) : null), [line]);
@@ -40,6 +42,17 @@ export default function RecordingDetailScreen() {
       router.back();
     }
   }, [id, deleteRecording, router]);
+
+  const handlePublish = useCallback(async () => {
+    if (!data) return;
+    const confirmed = await confirmAction({
+      title: 'Tour als Route veröffentlichen?',
+      message:
+        'Alle TrailMate-Nutzer sehen dann die Linie mit Start und Ziel, die Distanz und die Höhenmeter in Entdecken. Beginnt oder endet die Tour bei dir zu Hause, veröffentliche sie besser nicht.',
+      confirmText: 'Veröffentlichen',
+    });
+    if (confirmed) await publishRecording(data);
+  }, [data, publishRecording]);
 
   const header = <Stack.Screen options={{ headerShown: true, title: 'Tour' }} />;
 
@@ -115,6 +128,30 @@ export default function RecordingDetailScreen() {
         ))}
       </View>
 
+      {data.route_id ? (
+        <Pressable
+          style={({ pressed }) => [styles.routeButton, pressed && styles.pressed]}
+          onPress={() => router.push({ pathname: '/route-detail', params: { id: data.route_id as string } })}
+          accessibilityRole="button"
+        >
+          <Ionicons name="trail-sign-outline" size={18} color={Colors.textOnPrimary} />
+          <Text style={styles.routeButtonText}>Zur Route</Text>
+        </Pressable>
+      ) : (
+        !data.is_hidden &&
+        line && (
+          <Pressable
+            style={({ pressed }) => [styles.routeButton, (pressed || isPublishing) && styles.pressed]}
+            onPress={handlePublish}
+            disabled={isPublishing}
+            accessibilityRole="button"
+          >
+            <Ionicons name="share-outline" size={18} color={Colors.textOnPrimary} />
+            <Text style={styles.routeButtonText}>Als Route veröffentlichen</Text>
+          </Pressable>
+        )
+      )}
+
       <Pressable
         style={({ pressed }) => [styles.deleteButton, (pressed || isDeleting) && styles.pressed]}
         onPress={handleDelete}
@@ -145,6 +182,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   rowLabel: { fontSize: 15, color: Colors.textSecondary },
   rowValue: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  routeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.primary },
+  routeButtonText: { fontSize: 16, fontWeight: '600', color: Colors.textOnPrimary },
   deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.surface },
   deleteButtonText: { fontSize: 16, fontWeight: '600', color: Colors.error },
   pressed: { opacity: 0.6 },
