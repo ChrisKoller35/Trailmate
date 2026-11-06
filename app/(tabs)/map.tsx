@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { showErrorToast } from '../../lib/toast';
+import { confirmRoutingNotice } from '../../lib/routingNotice';
 import { normalizeRouteId } from '../../lib/routeId';
 import { lineBounds } from '../../lib/geoBounds';
 import { useRouteGeometry } from '../../hooks/useRouteGeometry';
@@ -82,6 +83,7 @@ export default function MapScreen() {
       showErrorToast('Bitte setze Start- und Zielpunkt.');
       return;
     }
+    if (!(await confirmRoutingNotice())) return;
     await calculateRoute(startPoint, endPoint, {
       sacFilter: sacScales.length > 0 ? sacScales : undefined,
       waypoints: waypoints.length > 0 ? waypoints : undefined,
